@@ -1,0 +1,143 @@
+---
+import '../styles/global.css';
+import { getAdminPath } from '../lib/config';
+import { getSiteSettings } from '../server/site-settings';
+import { getRootUserId } from '../server/admin';
+import { requireRoot } from '../server/session';
+import { env } from 'cloudflare:workers';
+import { AdminIcon } from '../components/admin-icon';
+import { PaymentTypeSelect, ShopStatusSelect } from '../components/shop-select';
+
+const siteSettings = await getSiteSettings();
+const adminPath = getAdminPath((env as unknown as { ADMIN_PATH?: string }).ADMIN_PATH);
+const currentPath = Astro.params.path ?? '';
+if (!currentPath.startsWith(adminPath)) return new Response('Not Found', { status: 404 });
+if (!(await getRootUserId())) return Astro.redirect('/install');
+let sessionUser;
+try {
+  sessionUser = await requireRoot(Astro.request);
+} catch {
+  return Astro.redirect(`/${adminPath}/login`);
+}
+
+const isSettings = currentPath === `${adminPath}/settings`;
+const isShop = currentPath === `${adminPath}/shop`;
+const isPayments = currentPath === `${adminPath}/payments`;
+const pageTitle = isPayments ? 'Payments and orders' : isShop ? 'Shop' : isSettings ? 'Settings' : 'Overview';
+const navItems = [
+  { label: 'Home', href: `/${adminPath}`, icon: 'home' as const },
+  { label: 'Your page', href: `/${adminPath}/settings`, icon: 'page' as const },
+  { label: 'Feed', href: `/${adminPath}/feed`, icon: 'feed' as const },
+  { label: 'Settings', href: `/${adminPath}/settings`, icon: 'settings' as const },
+];
+const supportItems = [
+  { label: 'Payments & orders', href: `/${adminPath}/payments`, icon: 'payments' as const },
+  { label: 'Messages', href: `/${adminPath}/messages`, icon: 'messages' as const },
+  { label: 'My supporters', href: `/${adminPath}/supporters`, icon: 'supporters' as const },
+];
+const earnItems = [
+  { label: 'Memberships', href: `/${adminPath}/memberships`, icon: 'memberships' as const },
+  { label: 'Shop', href: `/${adminPath}/shop`, icon: 'shop' as const },
+  { label: 'Commissions', href: `/${adminPath}/commissions`, icon: 'commissions' as const },
+  { label: 'Buttons & widgets', href: `/${adminPath}/widgets`, icon: 'widgets' as const },
+  { label: 'Discord', href: `/${adminPath}/discord`, icon: 'discord' as const },
+  { label: 'Stream alerts', href: `/${adminPath}/alerts`, icon: 'alerts' as const },
+  { label: 'Promote your page', href: `/${adminPath}/promote`, icon: 'promote' as const },
+  { label: 'More', href: `/${adminPath}/more`, icon: 'more' as const },
+];
+
+function isActive(label: string) {
+  return (label === 'Settings' && isSettings) || (label === 'Shop' && isShop) || (label === 'Payments & orders' && isPayments) || (label === 'Home' && currentPath === adminPath);
+}
+---
+<html lang="en">
+  <head><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><title>{pageTitle} — FreeCoffee.bio</title></head>
+  <body class="admin-body">
+    <div class="admin-shell">
+      <aside class="admin-sidebar" id="admin-sidebar">
+        <a class="admin-brand" href={`/${adminPath}`} aria-label="FreeCoffee home"><span class="brand-mark"><AdminIcon name="coffee" size={20} /></span><span>FreeCoffee</span><b>.bio</b></a>
+        <nav class="admin-nav" aria-label="Main navigation">
+          {navItems.map((item) => <a class:list={['admin-nav-item', { 'is-active': isActive(item.label) }]} href={item.href}><span class="admin-nav-icon"><AdminIcon name={item.icon} /></span><span>{item.label}</span></a>)}
+          <p class="admin-nav-label">My support</p>
+          {supportItems.map((item) => <a class="admin-nav-item" href={item.href}><span class="admin-nav-icon"><AdminIcon name={item.icon} /></span><span>{item.label}</span></a>)}
+          <p class="admin-nav-label">More ways to earn</p>
+          {earnItems.map((item) => <a class:list={['admin-nav-item', { 'is-active': isActive(item.label) }]} href={item.href}><span class="admin-nav-icon"><AdminIcon name={item.icon} /></span><span>{item.label}</span></a>)}
+        </nav>
+        <a class="admin-share" href={`/${adminPath}/settings`}>Share</a>
+        <button class="admin-theme" type="button" data-theme-toggle aria-label="Toggle theme"><AdminIcon name="moon" size={17} /><span>Appearance</span></button>
+      </aside>
+
+      <div class="admin-main">
+        <header class="admin-topbar">
+          <button class="admin-menu-button" type="button" data-menu-toggle aria-label="Open navigation"><AdminIcon name="menu" size={21} /></button>
+          <div class="admin-top-actions">
+            <a class="page-pill" href="/" target="_blank" rel="noreferrer"><span class="mini-avatar"><AdminIcon name="page" size={14} /></span> Your page</a>
+            <button class="top-icon" type="button" aria-label="Notifications"><AdminIcon name="alerts" size={19} /></button>
+            <a class="top-icon" href="/" aria-label="Home"><AdminIcon name="home" size={20} /></a>
+            <button class="top-icon" type="button" data-logout aria-label="Sign out"><AdminIcon name="logout" size={19} /></button>
+          </div>
+        </header>
+
+        <main class="admin-content">
+          {isPayments ? (
+            <>
+              <div class="admin-heading"><h1>Payments and orders</h1></div>
+              <div class="settings-tabs payments-tabs" role="tablist"><a class="settings-tab is-selected" href={`/${adminPath}/payments`}>All</a><a class="settings-tab" href={`/${adminPath}/payments?tab=received`}>Received</a><a class="settings-tab" href={`/${adminPath}/payments?tab=given`}>Given</a></div>
+              <section class="payments-card"><div class="payments-filter"><PaymentTypeSelect /></div><div class="payments-empty"><div class="empty-coffee"><AdminIcon name="coffee" size={24} /></div><h2>No payments or orders yet</h2><p>Share your page to start receiving support. ☕</p></div></section>
+            </>
+          ) : isShop ? (
+            <>
+              <div class="admin-heading"><p class="admin-kicker">Creator tools</p><h1>Shop</h1><p>Sell digital or physical items in your own shop.</p></div>
+              <div class="settings-tabs shop-tabs" role="tablist"><a class="settings-tab is-selected" href={`/${adminPath}/shop`}>Setup</a><a class="settings-tab" href={`/${adminPath}/shop?tab=orders`}>Orders</a></div>
+              <a class="shop-video" href="#products"><span class="video-thumb"><AdminIcon name="shop" size={17} /></span><strong>Video: Setting up your shop</strong><span>→</span></a>
+              <section class="shop-card shop-status-card"><h2>Status</h2><p>Show or hide your shop tab on your page.</p><ShopStatusSelect /></section>
+              <section class="shop-card" id="products"><div class="shop-card-heading"><div><h2>Products <span class="hint"><AdminIcon name="info" size={14} /></span></h2></div><div class="shop-actions"><button type="button" aria-label="Search products"><AdminIcon name="search" size={17} /></button><button type="button" aria-label="Filter products"><AdminIcon name="filter" size={17} /></button><button class="dark-button" type="button"><AdminIcon name="plus" size={16} /> Add product</button></div></div><div class="product-row"><div class="product-thumb"><AdminIcon name="coffee" size={25} /></div><div class="product-copy"><strong>Licensing</strong><span>Digital · Member-only</span><small>Free</small></div><a href="#edit-product">Edit</a><button type="button" aria-label="More product options"><AdminIcon name="more" size={17} /></button></div></section>
+              <section class="shop-card"><h2>Contact details</h2><p>Add an email so buyers can contact you about their order. This setting is used for both Shop and Commissions.</p><input class="shop-input" type="email" value={sessionUser.email} aria-label="Contact email" /></section>
+              <section class="shop-card"><h2>Categories</h2><p>Group your products into categories so buyers can filter your shop.</p><div class="shop-empty-row"><span>No categories yet</span><button type="button">Add categories</button></div></section>
+              <section class="shop-card"><h2>Sharing</h2><h3>Preview image</h3><p>Add a preview image for sharing your shop on social media. We recommend a 2:1 ratio. <span class="hint">(optional)</span></p><div class="shop-empty-row"><span>No preview image yet</span><button type="button">Browse…</button></div></section>
+              <section class="shop-card"><h2>Additional settings</h2><label class="check-row"><input type="checkbox" /> Ask your buyer for their telephone number when an item includes shipping <span class="hint">ⓘ</span></label><label class="check-row"><input type="checkbox" /> Purchases unlock supporter-only content</label></section>
+              <section class="shop-card"><h2>Your terms</h2><p>These terms apply to all of your products. Tell your buyers about your refund/cancellation policy, delivery details and any licence conditions. <a href="#terms">Read more</a></p><textarea class="shop-input" rows="5" placeholder="e.g. refund policy, cancellation, lead times, licence"></textarea></section>
+              <section class="shop-card shop-small-card"><h2>Discounts</h2><p>Promote your shop with shareable <a href="#discounts">discounts</a></p></section>
+              <section class="shop-card shop-small-card"><h2>Sales tax</h2><p>Sales tax If you charge sales tax, you can manage that <a href="#tax">here</a></p></section>
+              <section class="shop-card shop-small-card"><h2>Feedback</h2><p>We love your feedback! Let us know what you think <a href="#feedback">here</a> or read our FAQs <a href="#faqs">here</a></p></section>
+            </>
+          ) : isSettings ? (
+            <>
+              <div class="admin-heading"><p class="admin-kicker">Workspace</p><h1>Settings</h1><p>Shape how your page looks and how supporters can reach you.</p></div>
+              <div class="settings-tabs" role="tablist"><a class="settings-tab is-selected" href={`/${adminPath}/settings`}>Profile</a><a class="settings-tab" href={`/${adminPath}/settings?tab=payment`}>Payment</a><a class="settings-tab" href={`/${adminPath}/settings?tab=page`}>Page</a></div>
+              <section class="settings-card">
+                <div class="profile-photo"><div class="profile-avatar"><AdminIcon name="coffee" size={42} /></div><button type="button">Change photo</button></div>
+                <form class="profile-form" data-profile-form>
+                  <label>Display name <span class="hint"><AdminIcon name="info" size={14} /></span><input value={sessionUser.name} name="displayName" /></label>
+                  <label>Username <span class="hint"><AdminIcon name="info" size={14} /></span><div class="input-with-button"><input placeholder="freecoffee.bio/yourname" name="username" /><button type="button">Set</button></div></label>
+                  <label>About you <span class="hint"><AdminIcon name="info" size={14} /></span><textarea name="about" rows="5" placeholder="Tell supporters what you make and why it matters."></textarea></label>
+                  <label>What do you do? <span class="hint"><AdminIcon name="info" size={14} /></span><div class="tag-input"><span>Creator <button type="button" aria-label="Remove tag"><AdminIcon name="close" size={13} /></button></span></div></label>
+                  <label>Site URL <span class="hint"><AdminIcon name="info" size={14} /></span><div class="input-with-button"><input value={siteSettings.siteUrl || Astro.url.origin} name="siteUrl" type="url" placeholder="https://your-domain.com" /><button type="submit">Save</button></div><span class="field-help">Use the site origin only. Do not include <code>/{adminPath}</code> or a callback path.</span></label><label>Website <span class="hint"><AdminIcon name="info" size={14} /></span><input name="website" type="url" placeholder="https://" /></label>
+                  <button class="social-button" type="button"><AdminIcon name="link" size={16} /> Add social links</button>
+                  <hr />
+                  <div class="connected-heading"><h2>Connected accounts</h2><p>Link platforms you use for streaming and content.</p></div>
+                  {[{ label: 'X', icon: 'x' as const }, { label: 'Twitch', icon: 'twitch' as const }, { label: 'YouTube', icon: 'youtube' as const }].map((account) => <div class="connected-row"><span class="connected-account"><AdminIcon name={account.icon} size={16} /> {account.label}</span><button type="button">Connect</button></div>)}
+                  <button class="save-button" type="submit">Save changes</button><p class="form-status" data-form-status role="status"></p>
+                </form>
+              </section>
+            </>
+          ) : (
+            <>
+              <div class="admin-heading"><p class="admin-kicker">Admin / overview</p><h1>Good to see you, {sessionUser.name.split(' ')[0]}.</h1><p>Your creator workspace, at a glance.</p></div>
+              <section class="welcome-card"><div><p class="card-eyebrow">Your page is ready for its first visitor</p><h2>Make it yours.</h2><p>Complete your profile so supporters know who they’re backing.</p><a class="primary-button" href={`/${adminPath}/settings`}>Set up your page <span>→</span></a></div><div class="welcome-orbit">☕</div></section>
+              <div class="overview-grid"><article class="metric-card"><span>Support received</span><strong>$0.00</strong><small>Since you joined</small></article><article class="metric-card"><span>Coffees received</span><strong>0</strong><small>Keep creating</small></article><article class="metric-card"><span>Page visits</span><strong>—</strong><small>Coming soon</small></article></div>
+              <section class="activity-card"><div class="section-title"><div><p class="admin-kicker">Latest</p><h2>Activity</h2></div><a href={`/${adminPath}/payments`}>View all →</a></div><div class="empty-state"><span>☕</span><h3>Your activity will appear here</h3><p>When someone supports your work, you’ll see it in this space.</p></div></section>
+            </>
+          )}
+        </main>
+      </div>
+    </div>
+    <script is:inline>
+      const sidebar = document.querySelector('#admin-sidebar');
+      document.querySelector('[data-menu-toggle]')?.addEventListener('click', () => sidebar?.classList.toggle('is-open'));
+      document.querySelector('[data-theme-toggle]')?.addEventListener('click', () => document.documentElement.classList.toggle('dark'));
+      document.querySelector('[data-logout]')?.addEventListener('click', async () => { window.location.href = '/api/auth/logout'; });
+      document.querySelector('[data-profile-form]')?.addEventListener('submit', async (event) => { event.preventDefault(); const form = event.currentTarget; const status = document.querySelector('[data-form-status]'); const siteUrlInput = form.querySelector('[name="siteUrl"]'); if (!(siteUrlInput instanceof HTMLInputElement)) return; const response = await fetch('/api/admin/settings', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ siteUrl: siteUrlInput.value }) }); if (response.ok) { window.location.reload(); } else if (status) { const result = await response.json().catch(() => ({})); status.textContent = result.error || 'Unable to save settings.'; } });
+    </script>
+  </body>
+</html>

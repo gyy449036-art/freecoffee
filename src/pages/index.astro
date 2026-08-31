@@ -1,22 +1,20 @@
 ---
 import '../styles/global.css';
-import { DeployDialog } from '../components/deploy-dialog';
+import { CreatorPage } from '../components/creator-page';
+import { getCurrentUser } from '../server/session';
+
+const currentUser = await getCurrentUser(Astro.request);
 ---
 
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<main>
-			<h1>FreeCoffee</h1>
-			<p>Your own Tipping Platform.</p>
-			<DeployDialog client:load />
-		</main>
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content="Support independent creators directly with FreeCoffee.bio." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Alex Morgan — FreeCoffee.bio</title>
+  </head>
+  <body>
+    <CreatorPage client:load currentUser={currentUser ? { name: currentUser.name, email: currentUser.email } : null} />
+  </body>
 </html>
