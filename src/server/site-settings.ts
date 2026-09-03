@@ -6,6 +6,11 @@ const defaultSettings = {
   id: 1,
   siteUrl: '',
   siteName: 'FreeCoffee.bio',
+  stripeSecretKey: '',
+  stripeWebhookSecret: '',
+  paypalClientId: '',
+  paypalClientSecret: '',
+  paypalWebhookId: '',
   updatedAt: new Date(),
 };
 
@@ -35,6 +40,20 @@ export async function updateSiteUrl(value: string) {
   const siteUrl = normalizeSiteUrl(value);
   await createDb(env.DB).update(siteSettings).set({ siteUrl, updatedAt: new Date() }).where(eq(siteSettings.id, 1));
   return siteUrl;
+}
+
+export async function updatePaymentSettings(input: { stripeSecretKey?: string; stripeWebhookSecret?: string; paypalClientId?: string; paypalClientSecret?: string; paypalWebhookId?: string }) {
+  const db = createDb(env.DB);
+  const existing = await getSiteSettings();
+  const values = {
+    stripeSecretKey: input.stripeSecretKey || existing.stripeSecretKey,
+    stripeWebhookSecret: input.stripeWebhookSecret || existing.stripeWebhookSecret,
+    paypalClientId: input.paypalClientId || existing.paypalClientId,
+    paypalClientSecret: input.paypalClientSecret || existing.paypalClientSecret,
+    paypalWebhookId: input.paypalWebhookId || existing.paypalWebhookId,
+    updatedAt: new Date(),
+  };
+  await db.update(siteSettings).set(values).where(eq(siteSettings.id, 1));
 }
 
 export async function getSiteCallbackUrl(path: string): Promise<string> {

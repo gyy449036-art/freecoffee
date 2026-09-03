@@ -1,20 +1,51 @@
 ---
 import '../styles/global.css';
+import geistLatinFont from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2';
 import { CreatorPage } from '../components/creator-page';
+import { ToastHost } from '../components/toast-host';
 import { getCurrentUser } from '../server/session';
+import { getDefaultPublicCreator } from '../server/creator';
+import { isRoot } from '../server/admin';
+import { getAdminPath } from '../lib/config';
+import { env } from 'cloudflare:workers';
 
 const currentUser = await getCurrentUser(Astro.request);
+const isAdmin = currentUser ? await isRoot(currentUser.id) : false;
+const workspace = await getDefaultPublicCreator(isAdmin);
+const adminPath = getAdminPath((env as unknown as { ADMIN_PATH?: string }).ADMIN_PATH);
+const creator = workspace ? {
+  name: workspace.creator.displayName,
+  handle: workspace.creator.handle,
+  bio: workspace.creator.bio,
+  image: workspace.creator.image,
+  website: workspace.creator.website,
+  socialLinks: workspace.creator.socialLinks,
+  showSupport: workspace.page?.showSupport ?? true,
+  showShop: workspace.page?.showShop ?? true,
+  allowAnonymous: workspace.page?.allowAnonymous ?? true,
+  welcomeMessage: workspace.page?.welcomeMessage,
+  defaultSupportAmount: workspace.page?.defaultSupportAmount ?? 500,
+  terms: workspace.page?.terms,
+  supportGoal: workspace.supportGoal,
+  products: workspace.products.map((product) => ({ id: product.id, name: product.name, description: product.description, price: product.price, currency: product.currency })),
+  gallery: workspace.gallery.map((item) => ({ id: item.id, albumId: item.albumId, title: item.title, description: item.description, imageUrl: item.imageUrl, linkUrl: item.linkUrl, status: item.status })),
+  posts: workspace.posts.map((post) => ({ id: post.id, title: post.title, excerpt: post.excerpt, body: post.body, publishedAt: post.publishedAt, status: post.status })),
+  supporters: workspace.supporters,
+  paymentProviders: workspace.paymentProviders,
+} : undefined;
 ---
 
 <html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
-    <meta name="description" content="Support independent creators directly with FreeCoffee.bio." />
+    <link rel="preload" href={geistLatinFont} as="font" type="font/woff2" crossorigin />
+    <meta name="description" content={creator?.bio || (creator ? `Support ${creator.name} on FreeCoffee.bio.` : 'Support independent creators directly with FreeCoffee.bio.')} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <title>Alex Morgan — FreeCoffee.bio</title>
+    <title>{creator ? `${creator.name} — FreeCoffee.bio` : 'FreeCoffee.bio'}</title>
   </head>
-  <body>
-    <CreatorPage client:load currentUser={currentUser ? { name: currentUser.name, email: currentUser.email } : null} />
+  <body><script is:inline>try { if (localStorage.getItem('freecoffee-theme') === 'dark') document.documentElement.classList.add('dark'); } catch {}</script>
+    <ToastHost client:load />
+    <CreatorPage client:load currentUser={currentUser ? { name: currentUser.name, email: currentUser.email } : null} creator={creator} isAdmin={isAdmin} adminPath={adminPath} />
   </body>
 </html>

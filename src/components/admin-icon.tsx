@@ -18,7 +18,9 @@ import {
   Home,
   Info,
   Link2,
+  Mail,
   ArrowUpRight,
+  Activity,
   PlaySquare,
   Radio,
   X,
@@ -29,6 +31,7 @@ import {
   Settings,
   Store,
   Users,
+  Files,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -39,6 +42,7 @@ type IconName =
   | 'settings'
   | 'payments'
   | 'messages'
+  | 'mail'
   | 'supporters'
   | 'memberships'
   | 'shop'
@@ -46,6 +50,7 @@ type IconName =
   | 'widgets'
   | 'discord'
   | 'alerts'
+  | 'activity'
   | 'promote'
   | 'more'
   | 'coffee'
@@ -63,7 +68,8 @@ type IconName =
   | 'twitch'
   | 'x'
   | 'youtube'
-  | 'close';
+  | 'close'
+  | 'files';
 
 const icons: Record<IconName, LucideIcon> = {
   home: Home,
@@ -72,6 +78,7 @@ const icons: Record<IconName, LucideIcon> = {
   settings: Settings,
   payments: Receipt,
   messages: MessageSquare,
+  mail: Mail,
   supporters: Users,
   memberships: Gem,
   shop: Store,
@@ -79,6 +86,7 @@ const icons: Record<IconName, LucideIcon> = {
   widgets: Code2,
   discord: Gamepad2,
   alerts: BellRing,
+  activity: Activity,
   promote: Megaphone,
   more: Ellipsis,
   coffee: Coffee,
@@ -97,6 +105,7 @@ const icons: Record<IconName, LucideIcon> = {
   x: X,
   youtube: PlaySquare,
   close: X,
+  files: Files,
 };
 
 export function AdminIcon({ name, size = 18 }: { name: IconName; size?: number }) {
