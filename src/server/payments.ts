@@ -90,7 +90,7 @@ export async function createSupportCheckout(input: { handle: string; amount: num
   }
 }
 
-export async function createOrderCheckout(input: { handle: string; productId: string; email: string; provider: PaymentProviderName; returnUrl: string; cancelUrl: string }) {
+export async function createOrderCheckout(input: { handle: string; productId: string; email: string; buyerUserId?: string; provider: PaymentProviderName; returnUrl: string; cancelUrl: string }) {
   const db = createDb(env.DB);
   const [creator] = await db.select().from(creatorProfiles).where(eq(creatorProfiles.handle, input.handle.toLowerCase())).limit(1);
   if (!creator) throw new Error('Creator page not found.');
@@ -112,7 +112,7 @@ export async function createOrderCheckout(input: { handle: string; productId: st
   const providerCurrencies: Record<PaymentProviderName, Currency[]> = { stripe: ['USD', 'CNY', 'EUR', 'GBP', 'JPY'], paypal: ['USD', 'EUR', 'GBP', 'JPY'] };
   const settlementCurrency: Currency = providerCurrencies[input.provider].includes(currency) ? currency : 'USD';
   const settlement = settlementCurrency === currency ? { amount: totalAmount, rate: null, conversionRate: null } : await convertCurrency(totalAmount, currency, settlementCurrency);
-  await db.insert(orders).values({ id: orderId, creatorId: creator.id, buyerEmail: input.email.toLowerCase(), subtotalAmount: subtotal, taxRate: settings.taxRate, taxAmount, totalAmount, currency, settlementCurrency, settlementAmount: settlement.amount, exchangeRate: settlement.conversionRate, exchangeRateSource: settlement.rate?.source ?? null, exchangeRateAt: settlement.rate?.effectiveAt ?? null, status: 'pending', provider: input.provider, createdAt: now });
+  await db.insert(orders).values({ id: orderId, creatorId: creator.id, buyerUserId: input.buyerUserId ?? null, buyerEmail: input.email.toLowerCase(), subtotalAmount: subtotal, taxRate: settings.taxRate, taxAmount, totalAmount, currency, settlementCurrency, settlementAmount: settlement.amount, exchangeRate: settlement.conversionRate, exchangeRateSource: settlement.rate?.source ?? null, exchangeRateAt: settlement.rate?.effectiveAt ?? null, status: 'pending', provider: input.provider, createdAt: now });
   await db.insert(orderItems).values({ orderId, productId: product.id, productName: product.name, quantity: 1, unitAmount: product.price });
   await db.insert(paymentRecords).values({ id: crypto.randomUUID(), kind: 'order', referenceId: orderId, amount: settlement.amount, currency: settlementCurrency, quotedAmount: totalAmount, quotedCurrency: currency, provider: input.provider, status: 'pending', createdAt: now, updatedAt: now });
   try {
@@ -167,7 +167,7 @@ export async function markPaymentComplete(referenceId: string, provider: string,
       if (siteSettings.siteUrl) downloadLinks.push(new URL(`/api/download/${token}`, `${siteSettings.siteUrl}/`).toString());
     }
     const [order] = await db.select().from(orders).where(eq(orders.id, referenceId)).limit(1);
-    if (order) await sendNotification(order.buyerEmail, 'order-receipt', referenceId, { siteName: 'FreeCoffee.bio', orderId: order.id, downloadLinks: downloadLinks.join('\n') });
+    if (order) await sendNotification(order.buyerEmail, 'order-receipt', referenceId, { siteName: 'FreeCoffee.bio', orderId: order.id, amount: formatMoney(order.totalAmount, order.currency as Currency), currency: order.currency, downloadLinks: downloadLinks.join('\n') });
   }
 }
 

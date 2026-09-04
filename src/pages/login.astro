@@ -28,7 +28,7 @@ import { Input } from '../components/ui/input';
       form?.addEventListener('submit', async (event) => {
         event.preventDefault();
         const response = await fetch('/api/auth/sign-in/email', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(Object.fromEntries(new FormData(form))) });
-        if (response.ok) window.location.href = '/';
+        if (response.ok) window.location.href = new URLSearchParams(window.location.search).get('redirect') || '/';
         else showToast('Unable to sign in. Check your credentials and try again.');
       });
     </script>

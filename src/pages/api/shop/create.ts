@@ -2,6 +2,7 @@ import type { APIRoute } from 'astro';
 import { createOrderCheckout, type PaymentProviderName } from '../../../server/payments';
 import { publicError, requestId } from '../../../server/http';
 import { getSiteCallbackUrl } from '../../../server/site-settings';
+import { getCurrentUser } from '../../../server/session';
 
 function callbackUrl(request: Request, path: string) {
   return new URL(path, request.url).toString();
@@ -20,8 +21,9 @@ export const POST: APIRoute = async ({ request }) => {
     const handle = typeof body.handle === 'string' ? body.handle : '';
     const productId = typeof body.productId === 'string' ? body.productId : '';
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const user = await getCurrentUser(request);
     if (!provider || !handle || !productId) return publicError('Choose a product and payment provider.', 400, id);
-    const result = await createOrderCheckout({ handle, productId, email, provider: provider as PaymentProviderName, returnUrl: `${await getSiteCallbackUrl('/shop/success').catch(() => callbackUrl(request, '/shop/success'))}?reference={REFERENCE_ID}`, cancelUrl: await getSiteCallbackUrl(`/c/${encodeURIComponent(handle)}`).catch(() => callbackUrl(request, `/c/${encodeURIComponent(handle)}`)) });
+    const result = await createOrderCheckout({ handle, productId, email, buyerUserId: user?.id, provider: provider as PaymentProviderName, returnUrl: `${await getSiteCallbackUrl('/shop/success').catch(() => callbackUrl(request, '/shop/success'))}?reference={REFERENCE_ID}`, cancelUrl: await getSiteCallbackUrl(`/c/${encodeURIComponent(handle)}`).catch(() => callbackUrl(request, `/c/${encodeURIComponent(handle)}`)) });
     if (request.headers.get('accept')?.includes('application/json')) return Response.json({ checkoutUrl: result.url }, { headers: { 'x-request-id': id } });
     return new Response(null, { status: 303, headers: { Location: result.url, 'x-request-id': id } });
   } catch (error) {

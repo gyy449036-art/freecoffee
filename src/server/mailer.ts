@@ -8,7 +8,9 @@ export async function sendEmail(input: { to: string; subject: string; text: stri
   const db = createDb(env.DB);
   const [settings] = await db.select().from(smtpSettings).where(eq(smtpSettings.id, 1)).limit(1);
   if (!settings?.enabled || !settings.host || !settings.fromAddress || !settings.password) throw new Error('Email delivery is not configured.');
-  const mailer = await WorkerMailer.connect({ host: settings.host, port: settings.port, secure: settings.secure, credentials: { username: settings.username, password: settings.password }, authType: ['plain', 'login'], socketTimeoutMs: 10000, responseTimeoutMs: 10000 });
+  // Port 465 uses implicit TLS; port 587 negotiates STARTTLS. Passing secure=true
+  // to a 587 server makes the SMTP connection fail before authentication.
+  const mailer = await WorkerMailer.connect({ host: settings.host, port: settings.port, secure: settings.secure && settings.port === 465, startTls: settings.port !== 465, credentials: { username: settings.username, password: settings.password }, authType: ['plain', 'login'], socketTimeoutMs: 10000, responseTimeoutMs: 10000 });
   try {
     await mailer.send({ from: { name: 'FreeCoffee.bio', email: settings.fromAddress }, to: input.to, reply: settings.replyTo || undefined, subject: input.subject, text: input.text, html: input.html });
   } finally {

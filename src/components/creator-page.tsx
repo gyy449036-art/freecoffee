@@ -62,7 +62,7 @@ export function CreatorPage({ currentUser, creator = { name: 'Creator', handle: 
             FreeCoffee<span className="text-primary">.bio</span>
           </a>
           <nav className="flex items-center gap-3 text-sm text-muted-foreground">
-            {currentUser ? <button className="hover:text-foreground" type="button" onClick={(event) => { const button = event.currentTarget; button.disabled = true; button.textContent = 'Signing out…'; window.location.href = '/api/auth/logout' }}>Sign out</button> : <a className="hover:text-foreground" href="/login">Sign in</a>}
+            {currentUser ? <><a className="hover:text-foreground" href="/orders">My orders</a><button className="hover:text-foreground" type="button" onClick={(event) => { const button = event.currentTarget; button.disabled = true; button.textContent = 'Signing out…'; window.location.href = '/api/auth/logout' }}>Sign out</button></> : <a className="hover:text-foreground" href="/login">Sign in</a>}
             <Button asChild size="sm"><a href="https://freecoffee.bio/" target="_blank" rel="noreferrer">Create your page <ExternalLink className="size-4" data-icon="inline-end" /></a></Button>
           </nav>
         </div>
