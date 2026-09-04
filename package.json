@@ -66,7 +66,7 @@
         "description": "A random, non-obvious path for the admin area, such as 3q9527ko8."
       },
       "BETTER_AUTH_SECRET": {
-        "description": "Authentication signing secret. The default value is ready to use; if you replace it, use random characters of the same length."
+        "description": "Login secret. You must replace the default value with random characters while keeping the same length."
       }
     }
   }
