@@ -2,8 +2,13 @@ import type { APIRoute } from 'astro';
 import { createSupportCheckout, type PaymentProviderName } from '../../../server/payments';
 import { getCurrentUser } from '../../../server/session';
 import { publicError, requestId } from '../../../server/http';
-import { getSiteCallbackUrl } from '../../../server/site-settings';
+import { getSiteCallbackUrl, getSiteSettings } from '../../../server/site-settings';
+import { amountToMinor } from '../../../server/money';
 import { enforceRateLimit } from '../../../server/rate-limit';
+
+function callbackUrl(request: Request, path: string) {
+  return new URL(path, request.url).toString();
+}
 
 export const POST: APIRoute = async ({ request }) => {
   const id = requestId(request);
@@ -13,21 +18,22 @@ export const POST: APIRoute = async ({ request }) => {
     const body = await request.json() as Record<string, unknown>;
     const provider = body.provider === 'paypal' ? 'paypal' : body.provider === 'stripe' ? 'stripe' : null;
     if (!provider) return publicError('Choose Stripe or PayPal.', 400, id);
-    const amount = Number(body.amount);
+    const settings = await getSiteSettings();
+    const amount = typeof body.amount === 'string' ? amountToMinor(body.amount, settings.currency) : -1;
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     const handle = typeof body.handle === 'string' ? body.handle : '';
     const user = await getCurrentUser(request);
     const result = await createSupportCheckout({
       handle,
-      amount: Math.round(amount * 100),
-      currency: 'USD',
+      amount,
+      currency: settings.currency,
       provider: provider as PaymentProviderName,
       email,
       displayName: typeof body.displayName === 'string' ? body.displayName : undefined,
       message: typeof body.message === 'string' ? body.message : undefined,
       anonymous: body.anonymous === true,
-      returnUrl: `${await getSiteCallbackUrl('/support/success')}?reference={REFERENCE_ID}`, 
-      cancelUrl: await getSiteCallbackUrl(`/c/${encodeURIComponent(handle)}`),
+      returnUrl: `${await getSiteCallbackUrl('/support/success').catch(() => callbackUrl(request, '/support/success'))}?reference={REFERENCE_ID}`,
+      cancelUrl: await getSiteCallbackUrl(`/c/${encodeURIComponent(handle)}`).catch(() => callbackUrl(request, `/c/${encodeURIComponent(handle)}`)),
     });
     return Response.json({ checkoutUrl: result.url, id: result.id, userId: user?.id ?? null }, { headers: { 'x-request-id': id } });
   } catch (error) {

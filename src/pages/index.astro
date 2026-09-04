@@ -16,6 +16,7 @@ const adminPath = getAdminPath((env as unknown as { ADMIN_PATH?: string }).ADMIN
 const creator = workspace ? {
   name: workspace.creator.displayName,
   handle: workspace.creator.handle,
+  currency: workspace.currency,
   bio: workspace.creator.bio,
   image: workspace.creator.image,
   website: workspace.creator.website,
@@ -27,9 +28,9 @@ const creator = workspace ? {
   defaultSupportAmount: workspace.page?.defaultSupportAmount ?? 500,
   terms: workspace.page?.terms,
   supportGoal: workspace.supportGoal,
-  products: workspace.products.map((product) => ({ id: product.id, name: product.name, description: product.description, price: product.price, currency: product.currency })),
-  gallery: workspace.gallery.map((item) => ({ id: item.id, albumId: item.albumId, title: item.title, description: item.description, imageUrl: item.imageUrl, linkUrl: item.linkUrl, status: item.status })),
-  posts: workspace.posts.map((post) => ({ id: post.id, title: post.title, excerpt: post.excerpt, body: post.body, publishedAt: post.publishedAt, status: post.status })),
+  products: workspace.products.map((product) => ({ id: product.id, name: product.name, description: product.description, coverImageUrl: product.coverImageUrl, price: product.price, currency: product.currency })),
+  gallery: workspace.gallery.map((item) => ({ id: item.id, albumId: item.albumId, title: item.title, description: item.description, imageUrl: item.imageUrl, linkUrl: item.linkUrl, status: item.status === 'published' ? ('published' as const) : ('draft' as const) })),
+  posts: workspace.posts.map((post) => ({ id: post.id, title: post.title, excerpt: post.excerpt, coverImageUrl: post.coverImageUrl, body: post.body, publishedAt: post.publishedAt, status: post.status === 'published' ? ('published' as const) : ('draft' as const) })),
   supporters: workspace.supporters,
   paymentProviders: workspace.paymentProviders,
 } : undefined;

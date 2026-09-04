@@ -19,7 +19,8 @@ export async function getPublicCreator(handle: string, includeDrafts = false) {
     db.select().from(posts).where(includeDrafts ? eq(posts.creatorId, creator.id) : and(eq(posts.creatorId, creator.id), eq(posts.status, 'published'))).orderBy(desc(posts.publishedAt)), 
     db.select({ name: supportTransactions.displayName, message: supportTransactions.message, amount: supportTransactions.amount, createdAt: supportTransactions.createdAt, anonymous: supportTransactions.anonymous }).from(supportTransactions).where(and(eq(supportTransactions.creatorId, creator.id), eq(supportTransactions.status, 'paid'))).orderBy(desc(supportTransactions.createdAt)).limit(10),
     db.select({ amount: sql<number>`coalesce(sum(${supportTransactions.amount}), 0)` }).from(supportTransactions).where(and(eq(supportTransactions.creatorId, creator.id), eq(supportTransactions.status, 'paid'))),
-    db.select({ stripeSecretKey: siteSettings.stripeSecretKey, paypalClientId: siteSettings.paypalClientId, paypalClientSecret: siteSettings.paypalClientSecret }).from(siteSettings).where(eq(siteSettings.id, 1)).limit(1),
+    db.select({ stripeSecretKey: siteSettings.stripeSecretKey, stripeWebhookSecret: siteSettings.stripeWebhookSecret, paypalClientId: siteSettings.paypalClientId, paypalClientSecret: siteSettings.paypalClientSecret, paypalWebhookId: siteSettings.paypalWebhookId, currency: siteSettings.currency }).from(siteSettings).where(eq(siteSettings.id, 1)).limit(1),
+
   ]);
   return {
     creator,
@@ -35,9 +36,10 @@ export async function getPublicCreator(handle: string, includeDrafts = false) {
       description: page[0].supportGoalDescription,
       raised: supportTotal[0]?.amount ?? 0,
     } : null,
+    currency: settings[0]?.currency ?? 'USD',
     paymentProviders: {
-      stripe: Boolean(settings[0]?.stripeSecretKey),
-      paypal: Boolean(settings[0]?.paypalClientId && settings[0]?.paypalClientSecret),
+      stripe: Boolean(settings[0]?.stripeSecretKey && settings[0]?.stripeWebhookSecret),
+      paypal: Boolean(settings[0]?.paypalClientId && settings[0]?.paypalClientSecret && settings[0]?.paypalWebhookId),
     },
   };
 }

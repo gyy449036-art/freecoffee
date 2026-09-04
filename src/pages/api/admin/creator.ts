@@ -2,6 +2,8 @@ import type { APIRoute } from 'astro';
 import { isRoot } from '../../../server/admin';
 import { createAuth } from '../../../server/auth';
 import { updateCreatorProfile, updatePageSettings } from '../../../server/creator';
+import { amountToMinor } from '../../../server/money';
+import { getSiteSettings } from '../../../server/site-settings';
 
 async function getRootUser(request: Request) {
   const session = await createAuth().api.getSession({ headers: request.headers });
@@ -21,18 +23,21 @@ export const POST: APIRoute = async ({ request }) => {
       image: typeof body.image === 'string' ? body.image : undefined,
       socialLinks: typeof body.socialLinks === 'string' ? body.socialLinks : undefined,
     });
-    if (typeof body.themeColor === 'string' || typeof body.welcomeMessage === 'string' || typeof body.terms === 'string' || typeof body.defaultSupportAmount === 'number' || typeof body.allowAnonymous === 'boolean' || typeof body.supportGoalEnabled === 'boolean' || typeof body.supportGoalTitle === 'string' || typeof body.supportGoalAmount === 'number' || typeof body.supportGoalDescription === 'string') {
+    const currency = (await getSiteSettings()).currency;
+    const defaultSupportAmount = typeof body.defaultSupportAmount === 'string' ? amountToMinor(body.defaultSupportAmount, currency) : undefined;
+    const supportGoalAmount = typeof body.supportGoalAmount === 'string' ? amountToMinor(body.supportGoalAmount, currency) : undefined;
+    if (typeof body.themeColor === 'string' || typeof body.welcomeMessage === 'string' || typeof body.terms === 'string' || defaultSupportAmount !== undefined || typeof body.allowAnonymous === 'boolean' || typeof body.supportGoalEnabled === 'boolean' || typeof body.supportGoalTitle === 'string' || supportGoalAmount !== undefined || typeof body.supportGoalDescription === 'string') {
       await updatePageSettings(user, {
         themeColor: typeof body.themeColor === 'string' ? body.themeColor : undefined,
         welcomeMessage: typeof body.welcomeMessage === 'string' ? body.welcomeMessage : undefined,
         terms: typeof body.terms === 'string' ? body.terms : undefined,
-        defaultSupportAmount: typeof body.defaultSupportAmount === 'number' && Number.isInteger(body.defaultSupportAmount) && body.defaultSupportAmount >= 100 ? body.defaultSupportAmount : undefined,
+        defaultSupportAmount: defaultSupportAmount !== undefined && defaultSupportAmount > 0 ? defaultSupportAmount : undefined,
         allowAnonymous: typeof body.allowAnonymous === 'boolean' ? body.allowAnonymous : undefined,
         showSupport: typeof body.showSupport === 'boolean' ? body.showSupport : undefined,
         showShop: typeof body.showShop === 'boolean' ? body.showShop : undefined,
         supportGoalEnabled: typeof body.supportGoalEnabled === 'boolean' ? body.supportGoalEnabled : undefined,
         supportGoalTitle: typeof body.supportGoalTitle === 'string' ? body.supportGoalTitle : undefined,
-        supportGoalAmount: typeof body.supportGoalAmount === 'number' && Number.isInteger(body.supportGoalAmount) && body.supportGoalAmount >= 100 ? body.supportGoalAmount : undefined,
+        supportGoalAmount: supportGoalAmount !== undefined && supportGoalAmount > 0 ? supportGoalAmount : undefined,
         supportGoalDescription: typeof body.supportGoalDescription === 'string' ? body.supportGoalDescription : undefined,
       });
     }

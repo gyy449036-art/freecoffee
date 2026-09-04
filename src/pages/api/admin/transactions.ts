@@ -1,8 +1,8 @@
 import type { APIRoute } from 'astro';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, like, lte } from 'drizzle-orm';
 import { env } from 'cloudflare:workers';
 import { createDb } from '../../../db';
-import { orders, paymentRecords, supportTransactions } from '../../../db/schema';
+import { downloadGrants, orderItems, orders, paymentRecords, supportTransactions } from '../../../db/schema';
 import { createAuth } from '../../../server/auth';
 import { isRoot } from '../../../server/admin';
 import { getOrCreateCreator } from '../../../server/creator';
@@ -12,11 +12,35 @@ export const GET: APIRoute = async ({ request }) => {
   if (!session?.user || !(await isRoot(session.user.id))) return new Response('Unauthorized', { status: 401 });
   const creator = await getOrCreateCreator(session.user);
   const db = createDb(env.DB);
+  const url = new URL(request.url);
+  const limit = Math.min(100, Math.max(1, Number.parseInt(url.searchParams.get('limit') || '50', 10) || 50));
+  const status = url.searchParams.get('status');
+  const provider = url.searchParams.get('provider');
+  const email = url.searchParams.get('email');
+  const from = url.searchParams.get('from');
+  const to = url.searchParams.get('to');
+  const orderWhere = [eq(orders.creatorId, creator.id)];
+  if (status) orderWhere.push(eq(orders.status, status));
+  if (provider) orderWhere.push(eq(orders.provider, provider));
+  if (email) orderWhere.push(like(orders.buyerEmail, `%${email.slice(0, 120)}%`));
+  if (from && !Number.isNaN(Date.parse(from))) orderWhere.push(gte(orders.createdAt, new Date(from)));
+  if (to && !Number.isNaN(Date.parse(to))) orderWhere.push(lte(orders.createdAt, new Date(to)));
   const [supports, creatorOrders] = await Promise.all([
-    db.select().from(supportTransactions).where(eq(supportTransactions.creatorId, creator.id)).orderBy(desc(supportTransactions.createdAt)),
-    db.select().from(orders).where(eq(orders.creatorId, creator.id)).orderBy(desc(orders.createdAt)),
+    db.select().from(supportTransactions).where(eq(supportTransactions.creatorId, creator.id)).orderBy(desc(supportTransactions.createdAt)).limit(limit),
+    db.select().from(orders).where(and(...orderWhere)).orderBy(desc(orders.createdAt)).limit(limit),
   ]);
   const referenceIds = [...supports.map((item) => item.id), ...creatorOrders.map((item) => item.id)];
-  const payments = referenceIds.length ? await db.select().from(paymentRecords).orderBy(desc(paymentRecords.createdAt)) : [];
-  return Response.json({ supports, orders: creatorOrders, payments: payments.filter((payment) => referenceIds.includes(payment.referenceId)) });
+  const payments = referenceIds.length ? await db.select().from(paymentRecords).where(inArray(paymentRecords.referenceId, referenceIds)).orderBy(desc(paymentRecords.createdAt)) : [];
+  const orderId = url.searchParams.get('orderId');
+  if (orderId) {
+    const order = creatorOrders.find((item) => item.id === orderId);
+    if (!order) return Response.json({ error: 'Order not found.' }, { status: 404 });
+    const [items, grants, orderPayments] = await Promise.all([
+      db.select().from(orderItems).where(eq(orderItems.orderId, orderId)),
+      db.select({ id: downloadGrants.id, productId: downloadGrants.productId, expiresAt: downloadGrants.expiresAt, downloadCount: downloadGrants.downloadCount, maxDownloads: downloadGrants.maxDownloads, createdAt: downloadGrants.createdAt }).from(downloadGrants).where(eq(downloadGrants.orderId, orderId)),
+      db.select().from(paymentRecords).where(eq(paymentRecords.referenceId, orderId)),
+    ]);
+    return Response.json({ order, items, grants, payments: orderPayments });
+  }
+  return Response.json({ supports, orders: creatorOrders, payments });
 };

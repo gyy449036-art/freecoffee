@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 
 import { BadgeCheck, Coffee, ExternalLink, FileText, Heart, Image as ImageIcon, LockKeyhole, Mail, MessageCircle, MoreHorizontal, Pencil, Share2, ShoppingBag, Sparkles, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -11,22 +11,28 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Progress } from '@/components/ui/progress'
+import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { SupportForm } from '@/components/support-form'
 import { ContentDialog } from '@/components/content-dialog'
 import { QuickPost } from '@/components/quick-post'
 import { showToast } from '@/lib/toast'
 
 type Supporter = { name?: string | null; amount: number; message?: string | null; createdAt: string | Date; anonymous: boolean }
+
+function displayAmount(minor: number, currency: string) {
+  return (minor / (currency === 'JPY' ? 1 : 100)).toFixed(currency === 'JPY' ? 0 : 2)
+}
 export type CurrentUser = { name: string; email: string }
-export type Product = { id: string; name: string; description?: string | null; price: number; currency: string }
+export type Product = { id: string; name: string; description?: string | null; coverImageUrl?: string | null; price: number; currency: string }
 type CardCoverProps = { src?: string | null; alt: string; children?: React.ReactNode }
 type CardActionsProps = { onEdit: () => void; onDelete: () => void }
 type DeleteDialogProps = { open: boolean; onOpenChange: (open: boolean) => void; title: string; description: string; busy: boolean; onConfirm: () => void }
+type EditValues = { title: string; description: string; status: 'published' | 'draft' } | { title: string; excerpt: string; coverImageUrl: string; status: 'published' | 'draft' } | { name: string; description: string; price: string }
 
 type GalleryItem = { id: string; albumId?: string | null; title: string; description?: string | null; imageUrl: string; linkUrl?: string | null; status?: 'published' | 'draft' }
-type Post = { id: string; title: string; excerpt?: string | null; body: string; status?: 'published' | 'draft'; publishedAt?: string | Date | null }
+type Post = { id: string; title: string; excerpt?: string | null; coverImageUrl?: string | null; body: string; status?: 'published' | 'draft'; publishedAt?: string | Date | null }
 type SupportGoal = { enabled: boolean; title: string; amount: number; description?: string | null; raised: number }
-export type Creator = { name: string; handle: string; bio?: string | null; image?: string | null; website?: string | null; socialLinks?: string | null; welcomeMessage?: string | null; defaultSupportAmount?: number; terms?: string | null; allowAnonymous?: boolean; showSupport?: boolean; showShop?: boolean; supportGoal?: SupportGoal | null; products?: Product[]; gallery?: GalleryItem[]; posts?: Post[]; supporters?: Supporter[]; paymentProviders?: { stripe: boolean; paypal: boolean } }
+export type Creator = { name: string; handle: string; currency?: string; bio?: string | null; image?: string | null; website?: string | null; socialLinks?: string | null; welcomeMessage?: string | null; defaultSupportAmount?: number; terms?: string | null; allowAnonymous?: boolean; showSupport?: boolean; showShop?: boolean; supportGoal?: SupportGoal | null; products?: Product[]; gallery?: GalleryItem[]; posts?: Post[]; supporters?: Supporter[]; paymentProviders?: { stripe: boolean; paypal: boolean } }
 
 type TabProps = {
   creator: Creator
@@ -39,23 +45,23 @@ export function AboutTab({ creator, isAdmin }: TabProps) {
     {isAdmin && <QuickPost />}
     {(creator.supportGoal?.enabled || isAdmin) && <SupportGoalCard creator={creator} goal={creator.supportGoal} isAdmin={isAdmin} />}
     <section className="rounded-xl border bg-card p-5 shadow-sm"><div className="mb-4 flex items-center justify-between"><h2 className="text-lg font-semibold">About</h2></div><div className="space-y-3 text-base leading-6 text-muted-foreground"><p>{creator.bio || 'This creator has not added a bio yet.'}</p></div></section>
-    <section className="rounded-xl border bg-card p-5 shadow-sm"><div className="flex items-start justify-between"><div><h2 className="text-lg font-semibold">Recent supporters</h2><p className="mt-1 text-base text-muted-foreground">A little kindness goes a long way.</p></div><span className="rounded-full bg-muted px-2 py-1 font-mono text-xs">{creator.supporters?.length ?? 0}</span></div><div className="mt-4 divide-y">{creator.supporters?.length ? creator.supporters.map((supporter) => { const name = supporter.anonymous ? 'Anonymous' : supporter.name || 'Supporter'; return <div className="flex gap-3 py-4 first:pt-0 last:pb-0" key={`${name}-${supporter.createdAt}`}><span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 font-mono text-sm text-primary">{supporter.anonymous ? '?' : name[0]}</span><div className="min-w-0 text-base"><p className="text-muted-foreground"><strong className="text-foreground">{name}</strong> sent ${(supporter.amount / 100).toFixed(2)}</p>{supporter.message && <p className="mt-1">“{supporter.message}”</p>}</div><Coffee className="ml-auto size-4 shrink-0 text-primary" /></div>}) : <p className="py-4 text-base text-muted-foreground">No public supporters yet.</p>}</div></section>
+    <section className="rounded-xl border bg-card p-5 shadow-sm"><div className="flex items-start justify-between"><div><h2 className="text-lg font-semibold">Recent supporters</h2><p className="mt-1 text-base text-muted-foreground">A little kindness goes a long way.</p></div><span className="rounded-full bg-muted px-2 py-1 font-mono text-xs">{creator.supporters?.length ?? 0}</span></div><div className="mt-4 divide-y">{creator.supporters?.length ? creator.supporters.map((supporter) => { const name = supporter.anonymous ? 'Anonymous' : supporter.name || 'Supporter'; return <div className="flex gap-3 py-4 first:pt-0 last:pb-0" key={`${name}-${supporter.createdAt}`}><span className="grid size-9 shrink-0 place-items-center rounded-full bg-primary/10 font-mono text-sm text-primary">{supporter.anonymous ? '?' : name[0]}</span><div className="min-w-0 text-base"><p className="text-muted-foreground"><strong className="text-foreground">{name}</strong> sent {(supporter.amount / 100).toFixed(2)} {creator.currency ?? 'USD'}</p>{supporter.message && <p className="mt-1">“{supporter.message}”</p>}</div><Coffee className="ml-auto size-4 shrink-0 text-primary" /></div>}) : <p className="py-4 text-base text-muted-foreground">No public supporters yet.</p>}</div></section>
   </>
 }
 
 export function AboutSupportPanel({ creator, currentUser, isAdmin }: TabProps) {
   const [submitted, setSubmitted] = useState(false)
   const [receiptEmail, setReceiptEmail] = useState('')
-  const [supportAmount, setSupportAmount] = useState(0)
+  const [supportAmount, setSupportAmount] = useState('0')
 
   function resetSupport() {
     setSubmitted(false)
     setReceiptEmail('')
-    setSupportAmount(0)
+    setSupportAmount('0')
   }
 
   return <aside className="space-y-4 lg:sticky lg:top-5">
-    {creator.showSupport === false ? <section className="rounded-xl border bg-card p-5 text-center shadow-sm"><h2 className="text-lg font-semibold">Support is currently unavailable</h2><p className="mt-2 text-base text-muted-foreground">Please check back later.</p></section> : submitted ? <section className="rounded-xl border bg-card p-5 shadow-sm" role="status"><div className="flex items-start justify-between"><div className="grid size-10 place-items-center rounded-full bg-primary/10 text-primary"><BadgeCheck className="size-5" /></div><button className="text-muted-foreground hover:text-foreground" type="button" onClick={resetSupport} aria-label="Close confirmation"><X className="size-4" /></button></div><h2 className="mt-4 text-2xl font-semibold tracking-tight">Thanks for supporting {creator.name}.</h2><p className="mt-2 text-base leading-6 text-muted-foreground">Your one-time support of ${supportAmount.toFixed(2)} is ready for secure payment.</p><div className="mt-5 rounded-lg bg-muted p-4 text-base"><p className="flex items-center gap-2 font-medium"><Mail className="size-4 text-primary" /> Receipt email</p><p className="mt-1 text-muted-foreground">A payment receipt and confirmation will be sent to <strong className="text-foreground">{receiptEmail}</strong>.</p></div><Button className="mt-5 w-full" size="lg" type="button" onClick={resetSupport}>Make another support</Button>{creator.terms && <p className="mt-4 text-base leading-6 text-muted-foreground">{creator.terms}</p>}</section> : <SupportForm creator={creator} defaultSupportAmount={creator.defaultSupportAmount} onSubmitted={(email, amount) => { setReceiptEmail(email); setSupportAmount(amount); setSubmitted(true) }} />}
+    {creator.showSupport === false ? <section className="rounded-xl border bg-card p-5 text-center shadow-sm"><h2 className="text-lg font-semibold">Support is currently unavailable</h2><p className="mt-2 text-base text-muted-foreground">Please check back later.</p></section> : submitted ? <section className="rounded-xl border bg-card p-5 shadow-sm" role="status"><div className="flex items-start justify-between"><div className="grid size-10 place-items-center rounded-full bg-primary/10 text-primary"><BadgeCheck className="size-5" /></div><button className="text-muted-foreground hover:text-foreground" type="button" onClick={resetSupport} aria-label="Close confirmation"><X className="size-4" /></button></div><h2 className="mt-4 text-2xl font-semibold tracking-tight">Thanks for supporting {creator.name}.</h2><p className="mt-2 text-base leading-6 text-muted-foreground">Your one-time support of {supportAmount} {creator.currency ?? 'USD'} is ready for secure payment.</p><div className="mt-5 rounded-lg bg-muted p-4 text-base"><p className="flex items-center gap-2 font-medium"><Mail className="size-4 text-primary" /> Receipt email</p><p className="mt-1 text-muted-foreground">A payment receipt and confirmation will be sent to <strong className="text-foreground">{receiptEmail}</strong>.</p></div><Button className="mt-5 w-full" size="lg" type="button" onClick={resetSupport}>Make another support</Button>{creator.terms && <p className="mt-4 text-base leading-6 text-muted-foreground">{creator.terms}</p>}</section> : <SupportForm creator={creator} currency={creator.currency} defaultSupportAmount={creator.defaultSupportAmount} onSubmitted={(email, amount) => { setReceiptEmail(email); setSupportAmount(String(amount)); setSubmitted(true) }} />}
     <section className="rounded-xl border bg-card p-4 shadow-sm"><div className="flex gap-2"><Sparkles className="size-4 shrink-0 text-primary" /><div><h2 className="text-sm font-semibold">When do I need an account?</h2><p className="mt-1 text-base leading-6 text-muted-foreground">Not for a one-time coffee. Create one only when you need to manage something.</p></div></div><ul className="mt-3 space-y-2 text-base leading-6 text-muted-foreground"><li className="flex gap-2"><LockKeyhole className="mt-0.5 size-4 shrink-0 text-primary" /><span>Unlock supporter-only posts using the same email as payment.</span></li><li className="flex gap-2"><Heart className="mt-0.5 size-4 shrink-0 text-primary" /><span>Manage monthly memberships, invoices, or cancellation.</span></li><li className="flex gap-2"><ShoppingBag className="mt-0.5 size-4 shrink-0 text-primary" /><span>Access Shop purchases and your support history.</span></li></ul>{!currentUser && <a className="mt-4 inline-flex text-xs font-medium text-primary hover:underline" href="/register">Create a free account <ExternalLink className="ml-1 size-3" /></a>}</section>
     <div className="flex gap-2 rounded-xl bg-primary/5 p-4 text-base text-muted-foreground"><LockKeyhole className="size-4 shrink-0 text-primary" /><p><strong className="text-foreground">Direct support.</strong> FreeCoffee takes 0% platform fees. Support goes to the creator's configured account.</p></div>
   </aside>
@@ -67,10 +73,10 @@ export function GalleryTab({ creator, isAdmin, currentUser }: Pick<TabProps, 'cr
   const [deleting, setDeleting] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
 
-  async function saveAlbum(values: { title: string; description: string; status: 'published' | 'draft' }) {
+  async function saveAlbum(values: EditValues) {
     if (!editing) return
     setBusy(true)
-    await updateContent('gallery', editing.id, values)
+    if ('description' in values && 'title' in values) await updateContent('gallery', editing.id, values as Record<string, string>)
     setBusy(false)
   }
   async function confirmDelete() {
@@ -102,10 +108,10 @@ export function PostsTab({ creator, isAdmin, currentUser }: Pick<TabProps, 'crea
   const [editing, setEditing] = useState<Post | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  async function savePost(values: { title: string; excerpt: string; status: 'published' | 'draft' }) {
+  async function savePost(values: EditValues) {
     if (!editing) return
     setBusy(true)
-    await updateContent('post', editing.id, values)
+    if ('excerpt' in values) await updateContent('post', editing.id, values)
     setBusy(false)
   }
   async function confirmDelete() {
@@ -116,8 +122,8 @@ export function PostsTab({ creator, isAdmin, currentUser }: Pick<TabProps, 'crea
   }
   return <>
     {isAdmin && <AddPostDialog />}
-    {creator.posts?.length ? <section className="grid justify-items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">{creator.posts.map((post) => <article className="relative flex aspect-[300/379] w-full max-w-[300px] flex-col overflow-hidden rounded-xl border bg-card shadow-sm" key={post.id}><div className="relative"><ContentDialog type="post" id={post.id} title={post.title} description={post.excerpt} body={post.body} currentUser={currentUser} />{isAdmin && post.status === 'draft' && <Badge className="absolute bottom-2 right-2 border-primary bg-primary text-primary-foreground">Draft</Badge>}</div>{isAdmin && <CardActions onEdit={() => setEditing(post)} onDelete={() => setDeleting(post.id)} />}<div className="min-h-0 flex-1 overflow-hidden p-4"><p className="font-mono text-xs text-muted-foreground">{post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : ''}</p><h2 className="mt-2 truncate text-lg font-semibold">{post.title}</h2><p className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground">{post.excerpt || post.body}</p></div></article>)}</section> : <Placeholder title="Posts" text="This creator has not published any posts yet." />}
-    {editing && <EditContentDialog type="post" item={editing} open={!!editing} onOpenChange={(open) => !open && setEditing(null)} busy={busy} onSubmit={savePost} />}
+    {creator.posts?.length ? <section className="grid justify-items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">{creator.posts.map((post) => <article className="relative flex aspect-[300/379] w-full max-w-[300px] flex-col overflow-hidden rounded-xl border bg-card shadow-sm" key={post.id}><div className="relative">{post.coverImageUrl ? <img src={post.coverImageUrl} alt={`${post.title} cover`} className="aspect-square w-full object-cover" /> : <ContentDialog type="post" id={post.id} title={post.title} description={post.excerpt} body={post.body} coverImageUrl={post.coverImageUrl} currentUser={currentUser} />}{isAdmin && post.status === 'draft' && <Badge className="absolute bottom-2 right-2 border-primary bg-primary text-primary-foreground">Draft</Badge>}</div>{isAdmin && <CardActions onEdit={() => setEditing(post)} onDelete={() => setDeleting(post.id)} />}<div className="min-h-0 flex-1 overflow-hidden p-4"><p className="font-mono text-xs text-muted-foreground">{post.publishedAt ? new Date(post.publishedAt).toLocaleDateString() : ''}</p><h2 className="mt-2 truncate text-lg font-semibold">{post.title}</h2><p className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground">{post.excerpt || post.body}</p></div></article>)}</section> : <Placeholder title="Posts" text="This creator has not published any posts yet." />}
+    {editing && <EditContentDialog key={editing.id} type="post" item={editing} open={!!editing} onOpenChange={(open) => !open && setEditing(null)} busy={busy} onSubmit={savePost} />}
     <DeleteDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)} title="Delete post?" description="This will permanently delete this post." busy={busy} onConfirm={() => void confirmDelete()} />
   </>
 }
@@ -126,10 +132,10 @@ export function ShopTab({ creator, currentUser, isAdmin }: Pick<TabProps, 'creat
   const [editing, setEditing] = useState<Product | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  async function saveProduct(values: { name: string; description: string; price: number }) {
+  async function saveProduct(values: EditValues) {
     if (!editing) return
     setBusy(true)
-    await updateProduct(editing.id, values)
+    if ('name' in values) await updateProduct(editing.id, values)
     setBusy(false)
   }
   async function confirmDelete() {
@@ -140,7 +146,7 @@ export function ShopTab({ creator, currentUser, isAdmin }: Pick<TabProps, 'creat
   }
   return <>
     {isAdmin && <AddProductDialog />}
-    {creator.showShop === false ? <Placeholder title="Shop" text="This creator has hidden their shop." /> : creator.products?.length ? <section className="grid items-start justify-items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">{creator.products.map((product) => <article className="relative flex aspect-[300/379] w-full max-w-[300px] min-w-0 flex-col overflow-hidden rounded-xl border bg-card shadow-sm" key={product.id}><a href={`/c/${encodeURIComponent(creator.handle)}/shop/${encodeURIComponent(product.id)}`} className="block"><CardCover alt="Product cover"><ShoppingBag className="size-10 text-muted-foreground/60" /></CardCover></a>{isAdmin && <CardActions onEdit={() => setEditing(product)} onDelete={() => setDeleting(product.id)} />}<div className="min-h-0 flex-1 p-4"><div className="flex h-full flex-col justify-between gap-3"><div><h2 className="truncate text-lg font-semibold"><a href={`/c/${encodeURIComponent(creator.handle)}/shop/${encodeURIComponent(product.id)}`} className="hover:underline">{product.name}</a></h2><p className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground">{product.description || 'Digital download'}</p></div><strong className="text-xl">${(product.price / 100).toFixed(2)}</strong></div></div><form className="grid gap-2 border-t p-4" action="/api/shop/create" method="post"><input type="hidden" name="handle" value={creator.handle} /><input type="hidden" name="productId" value={product.id} /><Input required type="email" name="email" defaultValue={currentUser?.email ?? ''} placeholder="Buyer email" aria-label={`Buyer email for ${product.name}`} className="h-10 min-w-0" />{creator.paymentProviders?.stripe || creator.paymentProviders?.paypal ? <div className="flex min-w-0 gap-2"><Select name="provider" defaultValue={creator.paymentProviders?.stripe ? 'stripe' : 'paypal'}><SelectTrigger aria-label="Payment provider" className="h-10 min-w-0 flex-1"><SelectValue /></SelectTrigger><SelectContent><SelectGroup>{creator.paymentProviders?.stripe && <SelectItem value="stripe">Stripe</SelectItem>}{creator.paymentProviders?.paypal && <SelectItem value="paypal">PayPal</SelectItem>}</SelectGroup></SelectContent></Select><Button type="submit" className="shrink-0">Buy <ShoppingBag className="size-4" data-icon="inline-end" /></Button></div> : <span className="text-xs text-muted-foreground">Purchases are temporarily unavailable.</span>}</form></article>)}</section> : <Placeholder title="Shop" text="No products yet. Check back soon for digital tools and resources." />}
+    {creator.showShop === false ? <Placeholder title="Shop" text="This creator has hidden their shop." /> : creator.products?.length ? <section className="grid items-start justify-items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">{creator.products.map((product) => <article className="relative flex aspect-[300/379] w-full max-w-[300px] min-w-0 flex-col overflow-hidden rounded-2xl border bg-card shadow-sm" key={product.id}><div className="relative"><a href={`/c/${encodeURIComponent(creator.handle)}/shop/${encodeURIComponent(product.id)}`} className="block"><CardCover src={product.coverImageUrl} alt={`${product.name} cover`}><ShoppingBag className="size-10 text-muted-foreground/60" /></CardCover></a><div className="pointer-events-none absolute inset-x-2 bottom-2 flex items-center justify-between gap-2"><span className={`max-w-[62%] truncate rounded-sm border border-white/70 px-2 py-1 text-[11px] font-bold uppercase text-white shadow-sm backdrop-blur-sm ${creator.paymentProviders?.stripe || creator.paymentProviders?.paypal ? 'bg-black/55' : 'bg-black/65'}`}>{creator.paymentProviders?.stripe || creator.paymentProviders?.paypal ? 'Digital' : 'Unavailable'}</span><span className="shrink-0 rounded-sm border border-white/70 bg-primary px-2 py-1 text-xs font-semibold text-primary-foreground shadow-sm">{product.price === 0 ? 'Free +' : `${displayAmount(product.price, product.currency)} ${product.currency}`}</span></div></div>{isAdmin && <CardActions onEdit={() => setEditing(product)} onDelete={() => setDeleting(product.id)} />}<div className="min-h-0 bg-card p-3"><div className="min-w-0"><h2 className="truncate text-lg font-semibold leading-6"><a href={`/c/${encodeURIComponent(creator.handle)}/shop/${encodeURIComponent(product.id)}`} className="hover:underline">{product.name}</a></h2><p className="mt-1 truncate text-sm leading-5 text-muted-foreground">{product.description || 'Digital download'}</p></div></div></article>)}</section> : <Placeholder title="Shop" text="No products yet. Check back soon for digital tools and resources." />}
     {editing && <EditContentDialog type="product" item={editing} open={!!editing} onOpenChange={(open) => !open && setEditing(null)} busy={busy} onSubmit={saveProduct} />}
     <DeleteDialog open={!!deleting} onOpenChange={(open) => !open && setDeleting(null)} title="Delete product?" description="This will permanently delete this product and its associated files." busy={busy} onConfirm={() => void confirmDelete()} />
   </>
@@ -150,22 +156,48 @@ function CardCover({ src, alt, children }: CardCoverProps) {
   return <div className="relative grid aspect-square shrink-0 place-items-center overflow-hidden bg-muted">{src ? <img src={src} alt={alt} className="size-full object-cover" /> : children || <ImageIcon className="size-10 text-muted-foreground/60" />}</div>
 }
 
-function EditContentDialog({ type, item, open, onOpenChange, busy, onSubmit }: { type: 'gallery' | 'post' | 'product'; item: { title?: string; description?: string | null; excerpt?: string | null; name?: string; price?: number; status?: 'published' | 'draft' }; open: boolean; onOpenChange: (open: boolean) => void; busy: boolean; onSubmit: (values: { title: string; description: string; status: 'published' | 'draft' } | { title: string; excerpt: string; status: 'published' | 'draft' } | { name: string; description: string; price: number }) => Promise<void> }) {
+function EditContentDialog({ type, item, open, onOpenChange, busy, onSubmit }: { type: 'gallery' | 'post' | 'product'; item: { title?: string; description?: string | null; excerpt?: string | null; name?: string; price?: number; currency?: string; coverImageUrl?: string | null; status?: 'published' | 'draft' }; open: boolean; onOpenChange: (open: boolean) => void; busy: boolean; onSubmit: (values: EditValues) => Promise<void> }) {
   const [first, setFirst] = useState(type === 'product' ? item.name ?? '' : item.title ?? '')
   const [second, setSecond] = useState(type === 'post' ? item.excerpt ?? '' : item.description ?? '')
   const [status, setStatus] = useState<'published' | 'draft'>(item.status ?? 'published')
-  const [price, setPrice] = useState(type === 'product' ? String((item.price ?? 0) / 100) : '')
-  function submit(event: FormEvent<HTMLFormElement>) {
+  const [coverImageUrl, setCoverImageUrl] = useState(item.coverImageUrl ?? '')
+  const [coverFile, setCoverFile] = useState<File | null>(null)
+  const [price, setPrice] = useState(type === 'product' ? String((item.price ?? 0) / (item.currency === 'JPY' ? 1 : 100)) : '')
+
+  useEffect(() => {
+    setFirst(type === 'product' ? item.name ?? '' : item.title ?? '')
+    setSecond(type === 'post' ? item.excerpt ?? '' : item.description ?? '')
+    setStatus(item.status ?? 'published')
+    setCoverImageUrl(item.coverImageUrl ?? '')
+    setCoverFile(null)
+    setPrice(type === 'product' ? String((item.price ?? 0) / (item.currency === 'JPY' ? 1 : 100)) : '')
+  }, [item, type, open])
+
+  async function uploadCover() {
+    if (!coverFile) return coverImageUrl
+    const form = new FormData()
+    form.set('file', coverFile)
+    form.set('folder', 'post-covers')
+    const response = await fetch('/api/admin/media', { method: 'PUT', body: form })
+    const result = await response.json().catch(() => ({})) as { error?: string; file?: { publicUrl?: string } }
+    if (!response.ok || !result.file?.publicUrl) throw new Error(result.error || 'Unable to upload cover image.')
+    setCoverImageUrl(result.file.publicUrl)
+    setCoverFile(null)
+    return result.file.publicUrl
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (!first.trim()) { showToast(type === 'product' ? 'Enter a product name.' : 'Enter a title.'); return }
     if (type === 'product') {
-      const amount = Number(price)
-      if (!Number.isFinite(amount) || amount < 0) { showToast('Enter a valid price.'); return }
-      void onSubmit({ name: first.trim(), description: second.trim(), price: Math.round(amount * 100) })
-    } else if (type === 'post') void onSubmit({ title: first.trim(), excerpt: second.trim(), status })
+      if (!/^(?:\d+\.?\d*|\.\d+)$/.test(price.trim())) { showToast('Enter a valid price.'); return }
+      void onSubmit({ name: first.trim(), description: second.trim(), price: price.trim() })
+    } else if (type === 'post') {
+      try { void onSubmit({ title: first.trim(), excerpt: second.trim(), coverImageUrl: await uploadCover(), status }) } catch (error) { showToast(error instanceof Error ? error.message : 'Unable to upload cover image.') }
+    }
     else void onSubmit({ title: first.trim(), description: second.trim(), status })
   }
-  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent><DialogHeader><DialogTitle>Edit {type}</DialogTitle><DialogDescription>Update this {type} using the fields below.</DialogDescription></DialogHeader><form className="grid gap-4" onSubmit={submit}><label className="grid gap-2 text-sm font-medium">{type === 'product' ? 'Product name' : type === 'post' ? 'Post title' : 'Album title'}<Input value={first} onChange={(event) => setFirst(event.target.value)} maxLength={160} /></label><label className="grid gap-2 text-sm font-medium">{type === 'post' ? 'Excerpt' : 'Description'}<Textarea value={second} onChange={(event) => setSecond(event.target.value)} /></label>{(type === 'gallery' || type === 'post') && <label className="grid gap-2 text-sm font-medium">Status<Select value={status} onValueChange={(value) => setStatus(value as 'published' | 'draft')}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="published">Published</SelectItem><SelectItem value="draft">Draft</SelectItem></SelectGroup></SelectContent></Select></label>}{type === 'product' && <label className="grid gap-2 text-sm font-medium">Price (USD)<Input value={price} onChange={(event) => setPrice(event.target.value)} type="number" min="0" step="0.01" /></label>}<Button type="submit" disabled={busy}>{busy ? 'Saving...' : 'Save changes'}</Button></form></DialogContent></Dialog>
+  return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[min(90vh,760px)] overflow-y-auto sm:max-w-xl"><DialogHeader><DialogTitle>{type === 'product' ? 'Edit product' : `Edit ${type}`}</DialogTitle><DialogDescription>{type === 'product' ? 'Update the details buyers see before downloading your digital product.' : `Update this ${type} using the fields below.`}</DialogDescription></DialogHeader><form className="flex flex-col gap-5" onSubmit={submit}><FieldGroup><Field><FieldLabel htmlFor="edit-content-title">{type === 'product' ? 'Name' : type === 'post' ? 'Post title' : 'Album title'}</FieldLabel><Input id="edit-content-title" value={first} onChange={(event) => setFirst(event.target.value)} maxLength={160} placeholder={type === 'product' ? 'Product name' : undefined} /></Field><Field><FieldLabel htmlFor="edit-content-description">{type === 'post' ? 'Excerpt' : 'Description'}</FieldLabel><Textarea id="edit-content-description" value={second} onChange={(event) => setSecond(event.target.value)} rows={type === 'product' ? 5 : undefined} placeholder={type === 'product' ? 'Share the details buyers need to know about this item.' : undefined} /></Field></FieldGroup>{type === 'post' && <Field><FieldLabel htmlFor="edit-post-cover">Cover image</FieldLabel><FieldDescription>Optional. Shown on the post card. Recommended ratio: 1:1.</FieldDescription><div className="grid aspect-square max-w-48 place-items-center overflow-hidden rounded-lg border border-dashed bg-muted/40">{coverFile ? <img src={URL.createObjectURL(coverFile)} alt="Cover preview" className="size-full object-cover" /> : coverImageUrl ? <img src={coverImageUrl} alt="Cover preview" className="size-full object-cover" /> : <FileText className="size-8 text-muted-foreground/60" />}</div><Input id="edit-post-cover" type="file" accept="image/*" onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} /></Field>}{type === 'product' && <Field><FieldLabel htmlFor="edit-product-price">Price ({item.currency ?? 'USD'})</FieldLabel><FieldDescription>Set the one-time price in the creator's current currency.</FieldDescription><Input id="edit-product-price" value={price} onChange={(event) => setPrice(event.target.value)} type="number" min={0} step={item.currency === 'JPY' ? 1 : 0.01} /></Field>}{(type === 'gallery' || type === 'post') && <Field><FieldLabel>Status</FieldLabel><Select value={status} onValueChange={(value) => setStatus(value as 'published' | 'draft')}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectGroup><SelectItem value="published">Published</SelectItem><SelectItem value="draft">Draft</SelectItem></SelectGroup></SelectContent></Select></Field>}<div className="flex flex-col-reverse gap-2 border-t pt-4 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button><Button type="submit" disabled={busy}>{busy ? 'Saving...' : 'Save changes'}</Button></div></form></DialogContent></Dialog>
 }
 
 function DeleteDialog({ open, onOpenChange, title, description, busy, onConfirm }: DeleteDialogProps) {
@@ -209,7 +241,7 @@ async function deleteProduct(id: string) {
   }
 }
 
-async function updateProduct(id: string, values: { name: string; description: string; price: number }) {
+async function updateProduct(id: string, values: { name: string; description: string; price: string }) {
   try {
     const response = await fetch('/api/admin/products', { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, ...values }) })
     const result = await response.json().catch(() => ({})) as { error?: string }
@@ -289,7 +321,7 @@ function AddGalleryDialog() {
     }
   }
 
-  return <div className="flex justify-end"><Dialog open={open} onOpenChange={openDialog}><DialogTrigger asChild><Button type="button">Add album</Button></DialogTrigger><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Add album</DialogTitle><DialogDescription>Add up to 8 images to one gallery album.</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={submit}><div className="rounded-lg border border-dashed p-3"><div className="mb-3 flex items-center justify-between text-sm text-muted-foreground"><span>{files.length} of 8 images</span>{configured === false && <span className="text-destructive">S3 is not configured</span>}</div><div className="grid grid-cols-4 gap-2">{files.map((file, index) => <div className="relative aspect-square overflow-hidden rounded-md border" key={`${file.name}-${file.lastModified}-${index}`}><img src={URL.createObjectURL(file)} alt="" className="size-full object-cover" /><button type="button" className="absolute right-1 top-1 grid size-6 place-items-center rounded-full bg-background/90 text-sm" onClick={() => removeFile(index)} aria-label={`Remove ${file.name}`}><X className="size-3" /></button></div>)}{files.length < 8 && <label className="grid aspect-square cursor-pointer place-items-center rounded-md border border-dashed text-sm font-semibold hover:bg-muted"><span>Add +</span><input className="sr-only" type="file" accept="image/*" multiple onChange={selectFiles} disabled={configured !== true || busy} /></label>}</div></div><label className="grid gap-2 text-sm font-medium">Title<Input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} placeholder="Album title" /></label><label className="grid gap-2 text-sm font-medium">Description<Textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={1000} placeholder="Describe this album" /></label><div className="grid gap-2"><Button className="w-full" type="submit" name="status" value="published" disabled={busy || configured !== true || !files.length}>{busy ? 'Uploading...' : 'Post album'}</Button><Button className="w-full" variant="outline" type="submit" name="status" value="draft" disabled={busy || configured !== true || !files.length}>Save draft</Button></div></form></DialogContent></Dialog></div>
+  return <div className="flex justify-end"><Dialog open={open} onOpenChange={openDialog}><DialogTrigger asChild><Button type="button">Add album</Button></DialogTrigger><DialogContent className="max-h-[90vh] overflow-y-auto"><DialogHeader><DialogTitle>Add album</DialogTitle><DialogDescription>Add up to 8 images to one gallery album.</DialogDescription></DialogHeader><form className="flex flex-col gap-5" onSubmit={submit}><FieldGroup><Field><FieldLabel htmlFor="gallery-title">Title</FieldLabel><Input id="gallery-title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} placeholder="Album title" /></Field><Field><FieldLabel htmlFor="gallery-description">Description</FieldLabel><Textarea id="gallery-description" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={1000} placeholder="Describe this album" /></Field></FieldGroup><Field><FieldLabel>Images</FieldLabel><FieldDescription>{files.length} of 8 images{configured === false && <span className="text-destructive"> · S3 is not configured</span>}</FieldDescription><div className="grid grid-cols-4 gap-2 rounded-lg border border-dashed p-3">{files.map((file, index) => <div className="relative aspect-square overflow-hidden rounded-md border" key={`${file.name}-${file.lastModified}-${index}`}><img src={URL.createObjectURL(file)} alt="" className="size-full object-cover" /><Button type="button" variant="ghost" size="icon-sm" className="absolute right-1 top-1 bg-background/90" onClick={() => removeFile(index)} aria-label={`Remove ${file.name}`}><X /></Button></div>)}{files.length < 8 && <label className="grid aspect-square cursor-pointer place-items-center rounded-md border border-dashed text-sm font-semibold hover:bg-muted"><span>Add +</span><Input className="sr-only" type="file" accept="image/*" multiple onChange={selectFiles} disabled={configured !== true || busy} /></label>}</div></Field><div className="flex flex-col gap-2"><Button className="w-full" type="submit" name="status" value="published" disabled={busy || configured !== true || !files.length}>{busy ? 'Uploading...' : 'Post album'}</Button><Button className="w-full" variant="outline" type="submit" name="status" value="draft" disabled={busy || configured !== true || !files.length}>Save draft</Button></div></form></DialogContent></Dialog></div>
 }
 
 function AddPostDialog() {
@@ -297,6 +329,7 @@ function AddPostDialog() {
   const [title, setTitle] = useState('')
   const [excerpt, setExcerpt] = useState('')
   const [body, setBody] = useState('')
+  const [coverFile, setCoverFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -307,7 +340,17 @@ function AddPostDialog() {
     }
     setBusy(true)
     try {
-      const response = await fetch('/api/admin/content', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'post', title, excerpt, body, publish: (event.nativeEvent as SubmitEvent).submitter instanceof HTMLButtonElement && (event.nativeEvent as SubmitEvent).submitter.value === 'published' }) })
+      let coverImageUrl = ''
+      if (coverFile) {
+        const form = new FormData()
+        form.set('file', coverFile)
+        form.set('folder', 'post-covers')
+        const upload = await fetch('/api/admin/media', { method: 'PUT', body: form })
+        const uploadResult = await upload.json().catch(() => ({})) as { error?: string; file?: { publicUrl?: string } }
+        if (!upload.ok || !uploadResult.file?.publicUrl) throw new Error(uploadResult.error || 'Unable to upload cover image.')
+        coverImageUrl = uploadResult.file.publicUrl
+      }
+      const response = await fetch('/api/admin/content', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ type: 'post', title, excerpt, body, coverImageUrl, publish: ((event.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null)?.value === 'published' }) })
       const result = await response.json().catch(() => ({})) as { error?: string }
       if (!response.ok) throw new Error(result.error || 'Unable to add post.')
       setOpen(false)
@@ -319,7 +362,7 @@ function AddPostDialog() {
     }
   }
 
-  return <div className="flex justify-end"><Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button type="button">Add post</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>Add post</DialogTitle><DialogDescription>Save a new post as a draft.</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={submit}><label className="grid gap-2 text-sm font-medium">Title<Input value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} placeholder="Post title" /></label><label className="grid gap-2 text-sm font-medium">Excerpt<Textarea value={excerpt} onChange={(event) => setExcerpt(event.target.value)} rows={3} placeholder="A short summary" /></label><label className="grid gap-2 text-sm font-medium">Content<Textarea value={body} onChange={(event) => setBody(event.target.value)} rows={8} maxLength={20000} placeholder="Write your post..." /></label><div className="grid gap-2"><Button type="submit" name="status" value="published" disabled={busy}>{busy ? 'Adding...' : 'Publish post'}</Button><Button type="submit" name="status" value="draft" variant="outline" disabled={busy}>Save draft</Button></div></form></DialogContent></Dialog></div>
+  return <div className="flex justify-end"><Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button type="button">Add post</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>Add post</DialogTitle><DialogDescription>Save a new post as a draft.</DialogDescription></DialogHeader><form className="flex flex-col gap-5" onSubmit={submit}><FieldGroup><Field><FieldLabel htmlFor="post-title">Title</FieldLabel><Input id="post-title" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={160} placeholder="Post title" /></Field><Field><FieldLabel htmlFor="post-excerpt">Excerpt</FieldLabel><Textarea id="post-excerpt" value={excerpt} onChange={(event) => setExcerpt(event.target.value)} rows={3} placeholder="A short summary" /></Field><Field><FieldLabel htmlFor="post-body">Content</FieldLabel><Textarea id="post-body" value={body} onChange={(event) => setBody(event.target.value)} rows={8} maxLength={20000} placeholder="Write your post..." /></Field><Field><FieldLabel htmlFor="post-cover">Cover image</FieldLabel><FieldDescription>Optional. Shown on the post card.</FieldDescription><Input id="post-cover" type="file" accept="image/*" onChange={(event) => setCoverFile(event.target.files?.[0] ?? null)} /></Field></FieldGroup><div className="grid gap-2"><Button type="submit" name="status" value="published" disabled={busy}>{busy ? 'Adding...' : 'Publish post'}</Button><Button type="submit" name="status" value="draft" variant="outline" disabled={busy}>Save draft</Button></div></form></DialogContent></Dialog></div>
 }
 
 function AddProductDialog() {
@@ -331,14 +374,13 @@ function AddProductDialog() {
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    const amount = Number(price)
-    if (!name.trim() || !Number.isFinite(amount) || amount < 0) {
+    if (!name.trim() || !/^(?:\d+\.?\d*|\.\d+)$/.test(price.trim())) {
       showToast('Enter a product name and a valid price.')
       return
     }
     setBusy(true)
     try {
-      const response = await fetch('/api/admin/products', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, description, price: Math.round(amount * 100), status: 'draft' }) })
+      const response = await fetch('/api/admin/products', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name, description, price, status: 'draft' }) })
       const result = await response.json().catch(() => ({})) as { error?: string }
       if (!response.ok) throw new Error(result.error || 'Unable to add product.')
       setOpen(false)
@@ -350,7 +392,7 @@ function AddProductDialog() {
     }
   }
 
-  return <div className="flex justify-end"><Dialog open={open} onOpenChange={setOpen}><Button type="button" onClick={() => setOpen(true)}>Add product</Button><DialogContent><DialogHeader><DialogTitle>Add product</DialogTitle><DialogDescription>Save a digital product as a draft.</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={submit}><label className="grid gap-2 text-sm font-medium">Product name<Input value={name} onChange={(event) => setName(event.target.value)} maxLength={160} placeholder="Product name" /></label><label className="grid gap-2 text-sm font-medium">Description<Textarea value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the digital download" /></label><label className="grid gap-2 text-sm font-medium">Price (USD)<Input value={price} onChange={(event) => setPrice(event.target.value)} type="number" min="0" step="0.01" placeholder="10.00" /></label><Button type="submit" disabled={busy}>{busy ? 'Adding...' : 'Add product'}</Button></form></DialogContent></Dialog></div>
+  return <div className="flex justify-end"><Dialog open={open} onOpenChange={setOpen}><Button type="button" onClick={() => setOpen(true)}>Add product</Button><DialogContent><DialogHeader><DialogTitle>Add product</DialogTitle><DialogDescription>Save a digital product as a draft.</DialogDescription></DialogHeader><form className="flex flex-col gap-5" onSubmit={submit}><FieldGroup><Field><FieldLabel htmlFor="product-name">Product name</FieldLabel><Input id="product-name" value={name} onChange={(event) => setName(event.target.value)} maxLength={160} placeholder="Product name" /></Field><Field><FieldLabel htmlFor="product-description">Description</FieldLabel><Textarea id="product-description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Describe the digital download" /></Field><Field><FieldLabel htmlFor="product-price">Price (USD)</FieldLabel><Input id="product-price" value={price} onChange={(event) => setPrice(event.target.value)} type="number" min="0" step="0.01" placeholder="10.00" /></Field></FieldGroup><Button type="submit" disabled={busy}>{busy ? 'Adding...' : 'Add product'}</Button></form></DialogContent></Dialog></div>
 }
 
 function SupportGoalCard({ creator, goal, isAdmin }: { creator: Creator; goal?: SupportGoal | null; isAdmin: boolean }) {
@@ -391,7 +433,7 @@ function SupportGoalCard({ creator, goal, isAdmin }: { creator: Creator; goal?: 
     }
   }
 
-  return <section className="rounded-xl border bg-card p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div><h2 className="text-base font-semibold">{goal?.title ?? 'Support goal'}</h2>{!goal && <p className="mt-1 text-sm text-muted-foreground">Set a public goal and let supporters see what their contribution helps fund.</p>}</div><div className="flex gap-2">{goal && <Button type="button" variant="outline" size="icon" aria-label="Share support goal" onClick={() => void shareGoal()}><Share2 className="size-4" /></Button>}{isAdmin && <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button type="button" variant={goal ? 'outline' : 'default'}>{goal ? 'Edit goal' : 'Set a goal'}</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>{goal ? 'Edit support goal' : 'Set a support goal'}</DialogTitle><DialogDescription>Show supporters what you are working toward.</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={saveGoal}><label className="grid gap-2 text-sm font-medium">Goal title<input className="h-10 rounded-md border bg-background px-3 font-normal outline-none focus-visible:border-ring" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Support open source development" maxLength={160} /></label><label className="grid gap-2 text-sm font-medium">Goal amount<input className="h-10 rounded-md border bg-background px-3 font-normal outline-none focus-visible:border-ring" type="number" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="100" /></label><label className="grid gap-2 text-sm font-medium">Description<textarea className="min-h-24 resize-y rounded-md border bg-background p-3 font-normal outline-none focus-visible:border-ring" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} placeholder="Tell supporters what this goal will fund." /></label><Button type="submit" disabled={busy}>{busy ? 'Saving...' : 'Save goal'}</Button></form></DialogContent></Dialog>}</div></div>{goal && <><Progress className="mt-4 h-2" value={percent} aria-label={`${percent}% of support goal reached`} /><p className="mt-2 text-sm"><strong>{percent}%</strong> of ${(goal.amount / 100).toFixed(2)} goal</p>{goal.description && <p className="mt-3 text-sm leading-6 text-muted-foreground">{goal.description}</p>}</>}</section>
+  return <section className="rounded-xl border bg-card p-4 shadow-sm"><div className="flex items-start justify-between gap-3"><div><h2 className="text-base font-semibold">{goal?.title ?? 'Support goal'}</h2>{!goal && <p className="mt-1 text-sm text-muted-foreground">Set a public goal and let supporters see what their contribution helps fund.</p>}</div><div className="flex gap-2">{goal && <Button type="button" variant="outline" size="icon" aria-label="Share support goal" onClick={() => void shareGoal()}><Share2 className="size-4" /></Button>}{isAdmin && <Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button type="button" variant={goal ? 'outline' : 'default'}>{goal ? 'Edit goal' : 'Set a goal'}</Button></DialogTrigger><DialogContent><DialogHeader><DialogTitle>{goal ? 'Edit support goal' : 'Set a support goal'}</DialogTitle><DialogDescription>Show supporters what you are working toward.</DialogDescription></DialogHeader><form className="flex flex-col gap-5" onSubmit={saveGoal}><FieldGroup><Field><FieldLabel htmlFor="goal-title">Goal title</FieldLabel><Input id="goal-title" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Support open source development" maxLength={160} /></Field><Field><FieldLabel htmlFor="goal-amount">Goal amount</FieldLabel><Input id="goal-amount" type="number" min="1" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} placeholder="100" /></Field><Field><FieldLabel htmlFor="goal-description">Description</FieldLabel><Textarea id="goal-description" value={description} onChange={(event) => setDescription(event.target.value)} maxLength={500} placeholder="Tell supporters what this goal will fund." /></Field></FieldGroup><Button type="submit" disabled={busy}>{busy ? 'Saving...' : 'Save goal'}</Button></form></DialogContent></Dialog>}</div></div>{goal && <><Progress className="mt-4 h-2" value={percent} aria-label={`${percent}% of support goal reached`} /><p className="mt-2 text-sm"><strong>{percent}%</strong> of ${(goal.amount / 100).toFixed(2)} goal</p>{goal.description && <p className="mt-3 text-sm leading-6 text-muted-foreground">{goal.description}</p>}</>}</section>
 }
 
 function Placeholder({ title, text, className = 'aspect-[300/379] w-full max-w-[300px] min-h-0' }: { title: string; text: string; className?: string }) {

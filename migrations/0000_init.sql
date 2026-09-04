@@ -109,6 +109,7 @@ CREATE TABLE `download_grants` (
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `download_grants_token_hash_unique` ON `download_grants` (`token_hash`);--> statement-breakpoint
+CREATE UNIQUE INDEX `download_grants_order_product_unique` ON `download_grants` (`order_id`,`product_id`);--> statement-breakpoint
 CREATE TABLE `gallery_items` (
 	`id` text PRIMARY KEY NOT NULL,
 	`creator_id` integer NOT NULL,
@@ -124,6 +125,17 @@ CREATE TABLE `gallery_items` (
 	FOREIGN KEY (`creator_id`) REFERENCES `creator_profiles`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE TABLE `exchange_rates` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`base_currency` text DEFAULT 'USD' NOT NULL,
+	`quote_currency` text NOT NULL,
+	`rate` text NOT NULL,
+	`source` text DEFAULT 'manual' NOT NULL,
+	`effective_at` integer NOT NULL,
+	`updated_at` integer NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `exchange_rates_base_quote_unique` ON `exchange_rates` (`base_currency`,`quote_currency`);--> statement-breakpoint
 CREATE TABLE `media_files` (
 	`id` text PRIMARY KEY NOT NULL,
 	`original_name` text NOT NULL,
@@ -185,8 +197,16 @@ CREATE TABLE `orders` (
 	`creator_id` integer NOT NULL,
 	`buyer_user_id` text,
 	`buyer_email` text NOT NULL,
+	`subtotal_amount` integer DEFAULT 0 NOT NULL,
+	`tax_rate` integer DEFAULT 0 NOT NULL,
+	`tax_amount` integer DEFAULT 0 NOT NULL,
 	`total_amount` integer NOT NULL,
 	`currency` text DEFAULT 'USD' NOT NULL,
+	`settlement_currency` text,
+	`settlement_amount` integer,
+	`exchange_rate` text,
+	`exchange_rate_source` text,
+	`exchange_rate_at` integer,
 	`status` text DEFAULT 'pending' NOT NULL,
 	`provider` text,
 	`provider_payment_id` text,
@@ -221,6 +241,14 @@ CREATE TABLE `payment_records` (
 	`provider_payment_id` text,
 	`status` text DEFAULT 'pending' NOT NULL,
 	`raw_reference` text,
+	`network` text,
+	`asset` text,
+	`wallet_address` text,
+	`transaction_hash` text,
+	`confirmations` integer,
+	`required_confirmations` integer,
+	`quoted_amount` integer,
+	`quoted_currency` text,
 	`created_at` integer NOT NULL,
 	`updated_at` integer NOT NULL,
 	FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON UPDATE no action ON DELETE set null
@@ -235,6 +263,7 @@ CREATE TABLE `posts` (
 	`creator_id` integer NOT NULL,
 	`title` text NOT NULL,
 	`excerpt` text,
+	`cover_image_url` text,
 	`body` text NOT NULL,
 	`status` text DEFAULT 'draft' NOT NULL,
 	`published_at` integer,
@@ -254,11 +283,13 @@ CREATE TABLE `product_files` (
 	FOREIGN KEY (`product_id`) REFERENCES `products`(`id`) ON UPDATE no action ON DELETE cascade
 );
 --> statement-breakpoint
+CREATE UNIQUE INDEX `product_files_product_id_unique` ON `product_files` (`product_id`);--> statement-breakpoint
 CREATE TABLE `products` (
 	`id` text PRIMARY KEY NOT NULL,
 	`creator_id` integer NOT NULL,
 	`name` text NOT NULL,
 	`description` text,
+	`cover_image_url` text,
 	`product_type` text DEFAULT 'digital' NOT NULL,
 	`price` integer DEFAULT 0 NOT NULL,
 	`currency` text DEFAULT 'USD' NOT NULL,
@@ -297,6 +328,8 @@ CREATE TABLE `site_settings` (
 	`id` integer PRIMARY KEY NOT NULL,
 	`site_url` text DEFAULT '' NOT NULL,
 	`site_name` text DEFAULT 'FreeCoffee.bio' NOT NULL,
+	`currency` text DEFAULT 'USD' NOT NULL,
+	`tax_rate` integer DEFAULT 0 NOT NULL,
 	`stripe_secret_key` text DEFAULT '' NOT NULL,
 	`stripe_webhook_secret` text DEFAULT '' NOT NULL,
 	`paypal_client_id` text DEFAULT '' NOT NULL,

@@ -2,6 +2,10 @@ import type { APIRoute } from 'astro';
 import { createOrderCheckout, type PaymentProviderName } from '../../../server/payments';
 import { publicError, requestId } from '../../../server/http';
 import { getSiteCallbackUrl } from '../../../server/site-settings';
+
+function callbackUrl(request: Request, path: string) {
+  return new URL(path, request.url).toString();
+}
 import { enforceRateLimit } from '../../../server/rate-limit';
 
 
@@ -17,7 +21,8 @@ export const POST: APIRoute = async ({ request }) => {
     const productId = typeof body.productId === 'string' ? body.productId : '';
     const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
     if (!provider || !handle || !productId) return publicError('Choose a product and payment provider.', 400, id);
-    const result = await createOrderCheckout({ handle, productId, email, provider: provider as PaymentProviderName, returnUrl: `${await getSiteCallbackUrl('/support/success')}?reference={REFERENCE_ID}`,  cancelUrl: await getSiteCallbackUrl(`/c/${encodeURIComponent(handle)}`) });
+    const result = await createOrderCheckout({ handle, productId, email, provider: provider as PaymentProviderName, returnUrl: `${await getSiteCallbackUrl('/shop/success').catch(() => callbackUrl(request, '/shop/success'))}?reference={REFERENCE_ID}`, cancelUrl: await getSiteCallbackUrl(`/c/${encodeURIComponent(handle)}`).catch(() => callbackUrl(request, `/c/${encodeURIComponent(handle)}`)) });
+    if (request.headers.get('accept')?.includes('application/json')) return Response.json({ checkoutUrl: result.url }, { headers: { 'x-request-id': id } });
     return new Response(null, { status: 303, headers: { Location: result.url, 'x-request-id': id } });
   } catch (error) {
     console.error('Product checkout creation failed', error);

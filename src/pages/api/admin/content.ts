@@ -43,9 +43,10 @@ export const POST: APIRoute = async ({ request }) => {
       return Response.json({ item }, { status: 201 });
     }
     const bodyText = typeof body.body === 'string' ? body.body.trim() : '';
-    if (!bodyText || bodyText.length > 20000) return Response.json({ error: 'Enter post content up to 20,000 characters.' }, { status: 400 });
+    const coverImageUrl = typeof body.coverImageUrl === 'string' ? body.coverImageUrl.trim() : '';
+    if (!bodyText || bodyText.length > 20000 || coverImageUrl.length > 2000) return Response.json({ error: 'Enter post content up to 20,000 characters.' }, { status: 400 });
     const publish = body.publish === true;
-        const [post] = await db.insert(posts).values({ id: crypto.randomUUID(), creatorId: creator.id, title, excerpt: typeof body.excerpt === 'string' ? body.excerpt.trim() || null : null, body: bodyText, status: publish ? 'published' : 'draft', publishedAt: publish ? now : null, createdAt: now, updatedAt: now }).returning();
+    const [post] = await db.insert(posts).values({ id: crypto.randomUUID(), creatorId: creator.id, title, excerpt: typeof body.excerpt === 'string' ? body.excerpt.trim() || null : null, coverImageUrl: coverImageUrl || null, body: bodyText, status: publish ? 'published' : 'draft', publishedAt: publish ? now : null, createdAt: now, updatedAt: now }).returning();
     return Response.json({ post }, { status: 201 });
   } catch (error) {
     console.error('Content creation failed', error);
@@ -117,6 +118,11 @@ export const PATCH: APIRoute = async ({ request }) => {
     }
     if (typeof body.title === 'string') values.title = body.title.trim();
     if (typeof body.excerpt === 'string') values.excerpt = body.excerpt.trim() || null;
+    if (typeof body.coverImageUrl === 'string') {
+      const coverImageUrl = body.coverImageUrl.trim();
+      if (coverImageUrl.length > 2000) return Response.json({ error: 'Cover image URL is too long.' }, { status: 400 });
+      values.coverImageUrl = coverImageUrl || null;
+    }
     if (typeof body.body === 'string') values.body = body.body.trim();
     const [post] = await db.update(posts).set(values).where(and(eq(posts.id, id), eq(posts.creatorId, creator.id))).returning();
     if (!post) return Response.json({ error: 'Post not found.' }, { status: 404 });

@@ -12,11 +12,12 @@ type ContentDialogProps = {
   title: string
   description?: string | null
   body?: string
+  coverImageUrl?: string | null
   images?: GalleryImage[]
   currentUser?: { name: string; email: string } | null
 }
 
-export function ContentDialog({ type, id, title, description, body, images = [], currentUser }: ContentDialogProps) {
+export function ContentDialog({ type, id, title, description, body, coverImageUrl, images = [], currentUser }: ContentDialogProps) {
   const [open, setOpen] = useState(false)
   const [activeImage, setActiveImage] = useState(0)
   const [imageLoading, setImageLoading] = useState(false)
@@ -110,7 +111,7 @@ export function ContentDialog({ type, id, title, description, body, images = [],
 
   return <>
     <button type="button" className="block w-full text-left" onClick={() => setOpen(true)} aria-label={`Open ${title}`}>
-      {type === 'gallery' ? <div className="relative grid aspect-square place-items-center overflow-hidden bg-muted">{images[0] ? <img src={images[0].imageUrl} alt={title} className="size-full object-cover" /> : <ImageIcon className="size-10 text-muted-foreground/60" />}<span className="absolute bottom-2 left-2 rounded-md bg-background/85 px-2 py-1 text-xs font-medium">{images.length} {images.length === 1 ? 'image' : 'images'}</span></div> : <div className="grid aspect-square place-items-center bg-muted"><FileText className="size-10 text-muted-foreground/60" /></div>}
+      {type === 'gallery' ? <div className="relative grid aspect-square place-items-center overflow-hidden bg-muted">{images[0] ? <img src={images[0].imageUrl} alt={title} className="size-full object-cover" /> : <ImageIcon className="size-10 text-muted-foreground/60" />}<span className="absolute bottom-2 left-2 rounded-md bg-background/85 px-2 py-1 text-xs font-medium">{images.length} {images.length === 1 ? 'image' : 'images'}</span></div> : <div className="relative grid aspect-square place-items-center overflow-hidden bg-muted">{coverImageUrl ? <img src={coverImageUrl} alt={`${title} cover`} className="size-full object-cover" /> : <FileText className="size-10 text-muted-foreground/60" />}</div>}
     </button>
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="flex max-h-[90vh] max-w-3xl flex-col gap-0 overflow-hidden p-0">

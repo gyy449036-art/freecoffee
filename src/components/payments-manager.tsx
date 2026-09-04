@@ -17,6 +17,10 @@ function formatDate(value: string | Date) {
   return new Date(value).toLocaleString()
 }
 
+function formatMoney(amount: number, currency: string) {
+  return `${(amount / (currency === 'JPY' ? 1 : 100)).toFixed(currency === 'JPY' ? 0 : 2)} ${currency}`
+}
+
 export function PaymentsManager({ supports, orders }: { supports: Support[]; orders: Order[] }) {
   const [type, setType] = useState('all')
   const [page, setPage] = useState(1)
@@ -36,5 +40,5 @@ export function PaymentsManager({ supports, orders }: { supports: Support[]; ord
 }
 
 function PaymentList({ items, total, page, onPageChange, type, onTypeChange }: { items: PaymentItem[]; total: number; page: number; onPageChange: (page: number) => void; type: string; onTypeChange: (type: string) => void }) {
-  return <section className="payments-card"><div className="payments-filter"><Select value={type} onValueChange={onTypeChange}><SelectTrigger className="payments-select"><SelectValue placeholder="All" /></SelectTrigger><SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width)"><SelectItem value="all">All</SelectItem><SelectItem value="tips">Tips</SelectItem><SelectItem value="orders">Shop orders</SelectItem></SelectContent></Select></div>{total ? <div className="activity-list">{items.map((item) => <div className="activity-row" key={`${item.kind}-${item.id}`}><span><strong>{item.name}</strong><small>{item.detail} · {item.status} · {item.provider} · {formatDate(item.createdAt)}</small></span><b>{(item.amount / 100).toFixed(2)} {item.currency}</b></div>)}</div> : <div className="payments-empty"><div className="empty-coffee">☕</div><h2>No payments or orders yet</h2><p>Support and shop activity will appear here.</p></div>}<Pager page={page} total={total} onChange={onPageChange} /></section>
+  return <section className="payments-card"><div className="payments-filter"><Select value={type} onValueChange={onTypeChange}><SelectTrigger className="payments-select"><SelectValue placeholder="All" /></SelectTrigger><SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width)"><SelectItem value="all">All</SelectItem><SelectItem value="tips">Tips</SelectItem><SelectItem value="orders">Shop orders</SelectItem></SelectContent></Select></div>{total ? <div className="activity-list">{items.map((item) => <div className="activity-row" key={`${item.kind}-${item.id}`}><span><strong>{item.name}</strong><small>{item.detail} · {item.status} · {item.provider} · {formatDate(item.createdAt)}</small></span><b>{formatMoney(item.amount, item.currency)}</b></div>)}</div> : <div className="payments-empty"><div className="empty-coffee">☕</div><h2>No payments or orders yet</h2><p>Support and shop activity will appear here.</p></div>}<Pager page={page} total={total} onChange={onPageChange} /></section>
 }

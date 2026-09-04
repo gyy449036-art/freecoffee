@@ -8,12 +8,14 @@
   "scripts": {
     "dev": "astro dev",
     "build": "astro build",
+    "deploy": "npm run db:migrate:remote && wrangler deploy",
     "preview": "astro preview",
     "astro": "astro",
     "generate-types": "wrangler types",
     "db:generate": "drizzle-kit generate",
+    "test": "node --import tsx --test tests/**/*.test.ts",
     "db:migrate:local": "wrangler d1 migrations apply freecoffee-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply freecoffee-db --remote"
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {
     "@astrojs/cloudflare": "^14.2.5",
@@ -28,6 +30,7 @@
     "astro": "^7.2.9",
     "aws4fetch": "^1.0.20",
     "better-auth": "^1.7.2",
+    "big.js": "^7.0.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
@@ -51,8 +54,10 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.10",
+    "@types/big.js": "^7.0.0",
     "@types/node": "^26.4.0",
     "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.13",
     "typescript": "^6.0.3"
   }
 }

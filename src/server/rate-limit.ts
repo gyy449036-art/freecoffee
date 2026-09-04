@@ -22,6 +22,6 @@ export async function enforceRateLimit(request: Request, scope: string, limit = 
     return { allowed: true, retryAfter: 0 };
   }
   if (current.count >= limit) return { allowed: false, retryAfter: Math.max(1, current.expiresAt - now) };
-  await kv.put(key, JSON.stringify({ count: current.count + 1, expiresAt: current.expiresAt }), { expirationTtl: Math.max(1, current.expiresAt - now) });
+  await kv.put(key, JSON.stringify({ count: current.count + 1, expiresAt: current.expiresAt }), { expirationTtl: Math.max(60, current.expiresAt - now) });
   return { allowed: true, retryAfter: 0 };
 }

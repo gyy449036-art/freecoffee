@@ -58,6 +58,8 @@ export const siteSettings = sqliteTable('site_settings', {
   id: integer('id').primaryKey(),
   siteUrl: text('site_url').notNull().default(''),
   siteName: text('site_name').notNull().default('FreeCoffee.bio'),
+  currency: text('currency').notNull().default('USD'),
+  taxRate: integer('tax_rate').notNull().default(0),
   stripeSecretKey: text('stripe_secret_key').notNull().default(''),
   stripeWebhookSecret: text('stripe_webhook_secret').notNull().default(''),
   paypalClientId: text('paypal_client_id').notNull().default(''),
@@ -65,6 +67,18 @@ export const siteSettings = sqliteTable('site_settings', {
   paypalWebhookId: text('paypal_webhook_id').notNull().default(''),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 });
+
+export const exchangeRates = sqliteTable('exchange_rates', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  baseCurrency: text('base_currency').notNull().default('USD'),
+  quoteCurrency: text('quote_currency').notNull(),
+  rate: text('rate').notNull(),
+  source: text('source').notNull().default('manual'),
+  effectiveAt: integer('effective_at', { mode: 'timestamp' }).notNull(),
+  updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
+}, (table) => [
+  uniqueIndex('exchange_rates_base_quote_unique').on(table.baseCurrency, table.quoteCurrency),
+]);
 
 export const s3StorageSettings = sqliteTable('s3_storage_settings', {
   id: integer('id').primaryKey(),
@@ -183,6 +197,7 @@ export const posts = sqliteTable('posts', {
   creatorId: integer('creator_id').notNull().references(() => creatorProfiles.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   excerpt: text('excerpt'),
+  coverImageUrl: text('cover_image_url'),
   body: text('body').notNull(),
   status: text('status').notNull().default('draft'),
   publishedAt: integer('published_at', { mode: 'timestamp' }),
@@ -206,6 +221,7 @@ export const products = sqliteTable('products', {
   creatorId: integer('creator_id').notNull().references(() => creatorProfiles.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   description: text('description'),
+  coverImageUrl: text('cover_image_url'),
   productType: text('product_type').notNull().default('digital'),
   price: integer('price').notNull().default(0),
   currency: text('currency').notNull().default('USD'),
@@ -222,7 +238,9 @@ export const productFiles = sqliteTable('product_files', {
   fileSize: integer('file_size').notNull(),
   checksum: text('checksum'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
-});
+}, (table) => [
+  uniqueIndex('product_files_product_id_unique').on(table.productId),
+]);
 
 export const mediaFiles = sqliteTable('media_files', {
   id: text('id').primaryKey(),
@@ -241,8 +259,16 @@ export const orders = sqliteTable('orders', {
   creatorId: integer('creator_id').notNull().references(() => creatorProfiles.id, { onDelete: 'cascade' }),
   buyerUserId: text('buyer_user_id').references(() => users.id, { onDelete: 'set null' }),
   buyerEmail: text('buyer_email').notNull(),
+  subtotalAmount: integer('subtotal_amount').notNull().default(0),
+  taxRate: integer('tax_rate').notNull().default(0),
+  taxAmount: integer('tax_amount').notNull().default(0),
   totalAmount: integer('total_amount').notNull(),
   currency: text('currency').notNull().default('USD'),
+  settlementCurrency: text('settlement_currency'),
+  settlementAmount: integer('settlement_amount'),
+  exchangeRate: text('exchange_rate'),
+  exchangeRateSource: text('exchange_rate_source'),
+  exchangeRateAt: integer('exchange_rate_at', { mode: 'timestamp' }),
   status: text('status').notNull().default('pending'),
   provider: text('provider'),
   providerPaymentId: text('provider_payment_id'),
@@ -278,6 +304,7 @@ export const downloadGrants = sqliteTable('download_grants', {
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
 }, (table) => [
   foreignKey({ columns: [table.orderId, table.productId], foreignColumns: [orderItems.orderId, orderItems.productId], name: 'download_grants_order_product_fk' }).onDelete('cascade'),
+  uniqueIndex('download_grants_order_product_unique').on(table.orderId, table.productId),
   check('download_grants_count_valid', sql`${table.downloadCount} >= 0 AND ${table.maxDownloads} > 0`),
 ]);
 
@@ -333,6 +360,14 @@ export const paymentRecords = sqliteTable('payment_records', {
   providerPaymentId: text('provider_payment_id'),
   status: text('status').notNull().default('pending'),
   rawReference: text('raw_reference'),
+  network: text('network'),
+  asset: text('asset'),
+  walletAddress: text('wallet_address'),
+  transactionHash: text('transaction_hash'),
+  confirmations: integer('confirmations'),
+  requiredConfirmations: integer('required_confirmations'),
+  quotedAmount: integer('quoted_amount'),
+  quotedCurrency: text('quoted_currency'),
   createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp' }).notNull(),
 }, (table) => [
