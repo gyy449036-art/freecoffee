@@ -8,6 +8,8 @@ import { createAuth } from '../../../server/auth';
 import { getOrCreateCreator } from '../../../server/creator';
 import { getSiteSettings } from '../../../server/site-settings';
 import { amountToMinor } from '../../../server/money';
+import { createS3Client, objectUrl } from '../../../server/s3';
+import { getS3Settings } from '../../../server/media';
 
 async function rootUser(request: Request) {
   const session = await createAuth().api.getSession({ headers: request.headers });
@@ -61,7 +63,12 @@ export const DELETE: APIRoute = async ({ request }) => {
       return Response.json({ id, status: 'archived' });
     }
     const files = await db.select({ id: productFiles.id, r2Key: productFiles.r2Key }).from(productFiles).where(eq(productFiles.productId, id));
-    for (const file of files) await env.FILES.delete(file.r2Key);
+    const settings = await getS3Settings(env.DB);
+    if (files.length && !settings) return Response.json({ error: 'Configure S3 storage before deleting product files.' }, { status: 503 });
+    if (settings) for (const file of files) {
+      const response = await createS3Client(settings).fetch(objectUrl(settings, file.r2Key), { method: 'DELETE' });
+      if (!response.ok && response.status !== 404) throw new Error('Unable to delete product file from S3.');
+    }
     await db.delete(productFiles).where(eq(productFiles.productId, id));
     await db.delete(products).where(eq(products.id, id));
     return Response.json({ id });

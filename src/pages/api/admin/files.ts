@@ -6,6 +6,8 @@ import { orderItems, productFiles, products } from '../../../db/schema';
 import { createAuth } from '../../../server/auth';
 import { isRoot } from '../../../server/admin';
 import { getOrCreateCreator } from '../../../server/creator';
+import { createS3Client, objectUrl } from '../../../server/s3';
+import { getS3Settings } from '../../../server/media';
 
 export const DELETE: APIRoute = async ({ request }) => {
   const session = await createAuth().api.getSession({ headers: request.headers });
@@ -21,7 +23,10 @@ export const DELETE: APIRoute = async ({ request }) => {
     if (ordered) return Response.json({ error: 'This product has completed orders and its file cannot be deleted.' }, { status: 409 });
     const [file] = await db.select().from(productFiles).where(eq(productFiles.productId, productId)).limit(1);
     if (!file) return Response.json({ error: 'Product file not found.' }, { status: 404 });
-    await env.FILES.delete(file.r2Key);
+    const settings = await getS3Settings(env.DB);
+    if (!settings) return Response.json({ error: 'Configure S3 storage before managing product files.' }, { status: 503 });
+    const response = await createS3Client(settings).fetch(objectUrl(settings, file.r2Key), { method: 'DELETE' });
+    if (!response.ok && response.status !== 404) throw new Error('Unable to delete product file from S3.');
     await db.delete(productFiles).where(eq(productFiles.id, file.id));
     return Response.json({ productId });
   } catch (error) {
@@ -50,11 +55,15 @@ export const POST: APIRoute = async ({ request }) => {
     const id = crypto.randomUUID();
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 180) || 'download';
     const key = `products/${creator.id}/${productId}/${id}-${safeName}`;
-    await env.FILES.put(key, file.stream(), { httpMetadata: { contentType: file.type || 'application/octet-stream', contentDisposition: `attachment; filename="${safeName}"` } });
+    const settings = await getS3Settings(env.DB);
+    if (!settings) return Response.json({ error: 'Configure S3 storage before uploading product files.' }, { status: 503 });
+    const upload = await createS3Client(settings).fetch(objectUrl(settings, key), { method: 'PUT', headers: { 'content-type': file.type || 'application/octet-stream', 'content-length': String(file.size), 'content-disposition': `attachment; filename="${safeName}"` }, body: file.stream() });
+    if (!upload.ok) throw new Error('Unable to upload product file to S3.');
     const now = new Date();
     if (previous) {
       await db.update(productFiles).set({ r2Key: key, fileName: safeName, fileSize: file.size, checksum: null, createdAt: now }).where(eq(productFiles.id, previous.id));
-      await env.FILES.delete(previous.r2Key);
+      const cleanup = await createS3Client(settings).fetch(objectUrl(settings, previous.r2Key), { method: 'DELETE' });
+      if (!cleanup.ok && cleanup.status !== 404) console.error('Previous product file cleanup failed', cleanup.status);
     } else {
       await db.insert(productFiles).values({ id, productId, r2Key: key, fileName: safeName, fileSize: file.size, createdAt: now });
     }

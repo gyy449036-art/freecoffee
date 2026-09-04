@@ -5,6 +5,8 @@ import { createDb } from '../../../db';
 import { downloadGrants, productFiles } from '../../../db/schema';
 import { publicError, requestId } from '../../../server/http';
 import { enforceRateLimit } from '../../../server/rate-limit';
+import { createS3Client, objectUrl } from '../../../server/s3';
+import { getS3Settings } from '../../../server/media';
 
 async function hashToken(token: string) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token));
@@ -25,11 +27,13 @@ export const GET: APIRoute = async ({ params, request }) => {
   if (!claimed) return publicError('This download link has reached its limit.', 410, id);
   const [file] = await db.select().from(productFiles).where(eq(productFiles.productId, grant.productId)).limit(1);
   if (!file) return publicError('Download file not found.', 404, id);
-  const object = await env.FILES.get(file.r2Key);
-  if (!object) return publicError('Download file not found.', 404, id);
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
+  const settings = await getS3Settings(env.DB);
+  if (!settings) return publicError('Download storage is not configured.', 503, id);
+  const object = await createS3Client(settings).fetch(objectUrl(settings, file.r2Key), { method: 'GET' });
+  if (object.status === 404) return publicError('Download file not found.', 404, id);
+  if (!object.ok) return publicError('Unable to retrieve download file.', 502, id);
+  const headers = new Headers(object.headers);
   headers.set('Content-Disposition', `attachment; filename="${file.fileName.replace(/[^a-zA-Z0-9._-]/g, '_')}"`);
-    headers.set('x-request-id', id);
+  headers.set('x-request-id', id);
   return new Response(object.body, { headers });
 };

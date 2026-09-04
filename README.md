@@ -14,7 +14,7 @@ npm run build
 npm run deploy
 ```
 
-Configure your Cloudflare resources in `wrangler.jsonc` before deploying. Cloudflare will provision the D1 database and KV namespace when using the one-click deployment button.
+Configure your Cloudflare resources in `wrangler.jsonc` before manual deployment. Product and media files use the S3-compatible storage configured in the admin panel.
 
 ## Local development
 
