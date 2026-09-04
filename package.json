@@ -63,10 +63,10 @@
   "cloudflare": {
     "bindings": {
       "ADMIN_PATH": {
-        "description": "A random, non-obvious path for the admin area, such as 3q9527ko8."
+        "description": "A random, non-obvious path for the admin area, using only lowercase letters (a-z) and numbers (0-9), such as 3q9527ko8."
       },
       "BETTER_AUTH_SECRET": {
-        "description": "Login secret. You must replace the default value with random characters while keeping the same length."
+        "description": "Login secret. You must replace the default value with random characters using only lowercase letters (a-z) and numbers (0-9), while keeping the same length."
       }
     }
   }
