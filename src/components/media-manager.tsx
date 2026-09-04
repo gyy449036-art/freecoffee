@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Copy, File, Image, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
@@ -87,7 +88,7 @@ export function MediaManager({ initialStorage, initialFiles }: { initialStorage:
             <label>Path prefix<Input value={pathPrefix} onChange={(event) => setPathPrefix(event.target.value)} placeholder="media" /></label>
             <label>Access key ID<Input value={accessKeyId} onChange={(event) => setAccessKeyId(event.target.value)} placeholder={storage.accessKeyConfigured ? 'Saved' : 'Required'} /><span className="field-help">{storage.accessKeyConfigured ? 'A key is already saved. Leave this field blank to keep it, or enter a new key ID to replace it.' : 'Enter the access key ID provided by your S3-compatible storage provider.'}</span></label>
             <label>Secret access key<Input type="password" value={secretAccessKey} onChange={(event) => setSecretAccessKey(event.target.value)} placeholder={storage.secretKeyConfigured ? 'Saved' : 'Required'} /><span className="field-help">{storage.secretKeyConfigured ? 'A secret is already saved. Leave this field blank to keep it, or enter a new secret key to replace it.' : 'Enter the secret access key provided by your S3-compatible storage provider.'}</span></label>
-            <label className="check-row"><input type="checkbox" checked={forcePathStyle} onChange={(event) => setForcePathStyle(event.target.checked)} /> Use path-style requests</label>
+            <div className="check-row"><Checkbox id="force-path-style" checked={forcePathStyle} onCheckedChange={(checked) => setForcePathStyle(checked === true)} /><label htmlFor="force-path-style">Use path-style requests</label></div>
             <div className="media-actions"><Button type="submit" disabled={busy}>Save storage</Button><Button type="button" variant="outline" disabled={busy} onClick={() => void save('test')}>Test connection</Button></div>
             <p className="field-help">Credentials are stored in D1 and are never returned to the browser after saving.</p>
           </form>

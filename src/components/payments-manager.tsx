@@ -1,6 +1,9 @@
 import { useMemo, useState } from 'react'
+import { ArrowDownLeft, ShoppingBag, UserRound } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 type Support = { id: string; displayName: string | null; anonymous: boolean; status: string; provider: string | null; amount: number; currency: string; createdAt: string | Date }
@@ -10,7 +13,7 @@ const pageSize = 10
 
 function Pager({ page, total, onChange }: { page: number; total: number; onChange: (page: number) => void }) {
   const pageCount = Math.max(1, Math.ceil(total / pageSize))
-  return <Pagination className="mt-6"><PaginationContent><PaginationItem><PaginationPrevious href="#" aria-disabled={page === 1} onClick={(event) => { event.preventDefault(); if (page > 1) onChange(page - 1) }} /></PaginationItem>{Array.from({ length: pageCount }, (_, index) => index + 1).map((value) => <PaginationItem key={value}><PaginationLink href="#" isActive={value === page} onClick={(event) => { event.preventDefault(); onChange(value) }}>{value}</PaginationLink></PaginationItem>)}<PaginationItem><PaginationNext href="#" aria-disabled={page === pageCount} onClick={(event) => { event.preventDefault(); if (page < pageCount) onChange(page + 1) }} /></PaginationItem></PaginationContent></Pagination>
+  return <Pagination className="mt-5"><PaginationContent><PaginationItem><PaginationPrevious href="#" aria-disabled={page === 1} onClick={(event) => { event.preventDefault(); if (page > 1) onChange(page - 1) }} /></PaginationItem>{Array.from({ length: pageCount }, (_, index) => index + 1).map((value) => <PaginationItem key={value}><PaginationLink href="#" isActive={value === page} onClick={(event) => { event.preventDefault(); onChange(value) }}>{value}</PaginationLink></PaginationItem>)}<PaginationItem><PaginationNext href="#" aria-disabled={page === pageCount} onClick={(event) => { event.preventDefault(); if (page < pageCount) onChange(page + 1) }} /></PaginationItem></PaginationContent></Pagination>
 }
 
 function formatDate(value: string | Date) {
@@ -19,6 +22,10 @@ function formatDate(value: string | Date) {
 
 function formatMoney(amount: number, currency: string) {
   return `${(amount / (currency === 'JPY' ? 1 : 100)).toFixed(currency === 'JPY' ? 0 : 2)} ${currency}`
+}
+
+function statusVariant(status: string) {
+  return status === 'completed' || status === 'succeeded' ? 'default' : status === 'failed' || status === 'canceled' ? 'destructive' : 'secondary'
 }
 
 export function PaymentsManager({ supports, orders }: { supports: Support[]; orders: Order[] }) {
@@ -31,7 +38,6 @@ export function PaymentsManager({ supports, orders }: { supports: Support[]; ord
   }, [orders, supports, type])
   const visibleItems = items.slice((page - 1) * pageSize, page * pageSize)
   const updateType = (value: string) => { setType(value); setPage(1) }
-
   const tab = type === 'tips' ? 'received' : type === 'orders' ? 'orders' : 'all'
 
   return <div className="media-manager"><Tabs value={tab} onValueChange={(value) => updateType(value === 'received' ? 'tips' : value === 'orders' ? 'orders' : 'all')} className="w-full gap-0"><TabsList className="settings-tabs h-auto! w-full justify-start"><TabsTrigger value="all" className="settings-tab h-auto flex-none px-4.5 py-2.5">All</TabsTrigger><TabsTrigger value="received" className="settings-tab h-auto flex-none px-4.5 py-2.5">Received</TabsTrigger><TabsTrigger value="orders" className="settings-tab h-auto flex-none px-4.5 py-2.5">Orders</TabsTrigger></TabsList>
@@ -40,5 +46,5 @@ export function PaymentsManager({ supports, orders }: { supports: Support[]; ord
 }
 
 function PaymentList({ items, total, page, onPageChange, type, onTypeChange }: { items: PaymentItem[]; total: number; page: number; onPageChange: (page: number) => void; type: string; onTypeChange: (type: string) => void }) {
-  return <section className="payments-card"><div className="payments-filter"><Select value={type} onValueChange={onTypeChange}><SelectTrigger className="payments-select"><SelectValue placeholder="All" /></SelectTrigger><SelectContent position="popper" align="start" className="w-(--radix-select-trigger-width)"><SelectItem value="all">All</SelectItem><SelectItem value="tips">Tips</SelectItem><SelectItem value="orders">Shop orders</SelectItem></SelectContent></Select></div>{total ? <div className="activity-list">{items.map((item) => <div className="activity-row" key={`${item.kind}-${item.id}`}><span><strong>{item.name}</strong><small>{item.detail} · {item.status} · {item.provider} · {formatDate(item.createdAt)}</small></span><b>{formatMoney(item.amount, item.currency)}</b></div>)}</div> : <div className="payments-empty"><div className="empty-coffee">☕</div><h2>No payments or orders yet</h2><p>Support and shop activity will appear here.</p></div>}<Pager page={page} total={total} onChange={onPageChange} /></section>
+  return <section className="payments-card"><div className="flex flex-col gap-3 border-b pb-5 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-base font-semibold">Activity</h2><p className="text-sm text-muted-foreground">Track tips and shop orders in one place.</p></div><Select value={type} onValueChange={onTypeChange}><SelectTrigger className="w-full sm:w-52"><SelectValue placeholder="All activity" /></SelectTrigger><SelectContent position="popper" align="end" className="w-(--radix-select-trigger-width)"><SelectItem value="all">All activity</SelectItem><SelectItem value="tips">Tips</SelectItem><SelectItem value="orders">Shop orders</SelectItem></SelectContent></Select></div>{total ? <><Table><TableHeader><TableRow><TableHead>Activity</TableHead><TableHead>Status</TableHead><TableHead>Provider</TableHead><TableHead>Date</TableHead><TableHead className="text-right">Amount</TableHead></TableRow></TableHeader><TableBody>{items.map((item) => <TableRow key={`${item.kind}-${item.id}`}><TableCell><div className="flex items-center gap-3"><span className="grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">{item.kind === 'tip' ? <UserRound aria-hidden="true" /> : <ShoppingBag aria-hidden="true" />}</span><div className="grid min-w-44 gap-0.5"><strong className="font-medium">{item.name}</strong><span className="text-xs text-muted-foreground">{item.detail}</span></div></div></TableCell><TableCell><Badge variant={statusVariant(item.status)}>{item.status}</Badge></TableCell><TableCell className="capitalize text-muted-foreground">{item.provider}</TableCell><TableCell className="text-muted-foreground">{formatDate(item.createdAt)}</TableCell><TableCell className="text-right font-semibold tabular-nums">{formatMoney(item.amount, item.currency)}</TableCell></TableRow>)}</TableBody></Table><Pager page={page} total={total} onChange={onPageChange} /></> : <div className="payments-empty"><span className="grid size-12 place-items-center rounded-full bg-muted text-muted-foreground"><ArrowDownLeft aria-hidden="true" /></span><h2>No payments or orders yet</h2><p>Support and shop activity will appear here.</p></div>}</section>
 }
