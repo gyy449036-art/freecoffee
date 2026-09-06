@@ -39,8 +39,6 @@ function render(value: string, data: Record<string, string>) {
 export async function dispatchEmailNotification(input: { recipient: string; eventKey: string; referenceId?: string; data: Record<string, string> }) {
   await ensureNotificationTemplates();
   const db = createDb(env.DB);
-  const [template] = await db.select().from(notificationTemplates).where(and(eq(notificationTemplates.eventKey, input.eventKey), eq(notificationTemplates.channel, 'email'))).limit(1);
-  if (!template || !template.enabled) return;
   if (input.referenceId) {
     const [existing] = await db.select({ id: notificationDeliveries.id }).from(notificationDeliveries).where(and(eq(notificationDeliveries.recipient, input.recipient), eq(notificationDeliveries.template, input.eventKey), eq(notificationDeliveries.referenceId, input.referenceId))).limit(1);
     if (existing) return;
@@ -48,11 +46,19 @@ export async function dispatchEmailNotification(input: { recipient: string; even
   const id = crypto.randomUUID();
   const now = new Date();
   await db.insert(notificationDeliveries).values({ id, channel: 'email', recipient: input.recipient, template: input.eventKey, referenceId: input.referenceId ?? null, status: 'pending', attempts: 0, createdAt: now, updatedAt: now });
+  const [template] = await db.select().from(notificationTemplates).where(and(eq(notificationTemplates.eventKey, input.eventKey), eq(notificationTemplates.channel, 'email'))).limit(1);
+  if (!template || !template.enabled) {
+    const lastError = !template ? 'Notification template not found.' : 'Notification template is disabled.';
+    await db.update(notificationDeliveries).set({ status: 'failed', lastError, updatedAt: new Date() }).where(eq(notificationDeliveries.id, id));
+    return;
+  }
   try {
     await sendEmail({ to: input.recipient, subject: render(template.subject, input.data), text: render(template.bodyText, input.data), html: template.bodyHtml ? render(template.bodyHtml, input.data) : undefined, referenceId: input.referenceId });
     await db.update(notificationDeliveries).set({ status: 'sent', attempts: 1, updatedAt: new Date() }).where(eq(notificationDeliveries.id, id));
   } catch (error) {
-    await db.update(notificationDeliveries).set({ status: 'failed', attempts: 1, lastError: error instanceof Error ? error.message : String(error), updatedAt: new Date() }).where(eq(notificationDeliveries.id, id));
+    const lastError = error instanceof Error ? error.message : String(error);
+    await db.update(notificationDeliveries).set({ status: 'failed', attempts: 1, lastError, updatedAt: new Date() }).where(eq(notificationDeliveries.id, id));
+    console.error('Email notification delivery failed', { eventKey: input.eventKey, recipient: input.recipient, referenceId: input.referenceId, error: lastError });
   }
 }
 

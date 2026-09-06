@@ -90,7 +90,7 @@ export async function createSupportCheckout(input: { handle: string; amount: num
   }
 }
 
-export async function createOrderCheckout(input: { handle: string; productId: string; email: string; buyerUserId?: string; provider: PaymentProviderName; returnUrl: string; cancelUrl: string }) {
+export async function createOrderCheckout(input: { handle: string; productId: string; email: string; buyerUserId: string; provider: PaymentProviderName; returnUrl: string; cancelUrl: string }) {
   const db = createDb(env.DB);
   const [creator] = await db.select().from(creatorProfiles).where(eq(creatorProfiles.handle, input.handle.toLowerCase())).limit(1);
   if (!creator) throw new Error('Creator page not found.');
